@@ -7,6 +7,18 @@ NoteFlow is a note product and a learning conductor. The note and the learning c
 - **Front:** a retrieval prompt that requires an attempt
 - **Back:** the editable Markdown note used to compare, repair, and deepen the answer
 
+## 2026 All Things Agentic hackathon entry
+
+The `codex/all-things-agentic-hackathon` branch contains a separate Collaborative Partner entry built during the contest period. The original NoteFlow foundation is explicitly disclosed as pre-existing work; the entry claims only the new Google ADK, Gemini 3.5, Cloud Run, Firestore, Pub/Sub, and `/hackathon` experience.
+
+- [Provenance and pre-existing work disclosure](HACKATHON_DISCLOSURE.md)
+- [Dated development log](HACKATHON_DEVLOG.md)
+- [Architecture diagram](docs/HACKATHON_ARCHITECTURE.md)
+- [Agent service setup and Cloud Run deployment](hackathon-agent/README.md)
+- [Submission readiness checklist](HACKATHON_SUBMISSION_CHECKLIST.md)
+
+Open `/hackathon` after starting the web app. Without a configured Cloud Run URL, the page stays usable in a clearly labeled deterministic preview mode and never presents sample output as Gemini output.
+
 The app now has two explicit workspaces:
 
 - **笔记库:** create, search, import, tag, batch-manage, and edit the knowledge objects
