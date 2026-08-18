@@ -13,6 +13,7 @@ All timestamps use America/Phoenix (UTC-07:00 during the contest). This log reco
 - Added provenance disclosure, architecture, and reproducibility documentation.
 - Generated a dedicated NoteFlow Agent social preview card and connected route-specific metadata.
 - Verified the production web build, five automated tests, ADK `/list-apps`, ADK session creation, and the worker `/healthz` endpoint.
+- Provenance baseline commit: `faf440f` (`chore: establish transparent hackathon baseline`).
 
 ## Logging rules
 
