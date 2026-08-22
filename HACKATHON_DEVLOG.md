@@ -64,6 +64,7 @@ All timestamps use America/Phoenix (UTC-07:00 during the contest). This log reco
 - Preserved the full inherited Git history and fixed pre-contest baseline instead of starting an untraceable clean history.
 - Kept the original `Dollars7/NoteFlow` repository and its stable `main` branch unchanged.
 - Updated repository links and the provenance disclosure for the standalone submission context.
+- Standalone repository preparation commit: `3b06399` (`docs: prepare standalone hackathon repository`).
 
 ## Logging rules
 
