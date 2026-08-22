@@ -49,6 +49,14 @@ All timestamps use America/Phoenix (UTC-07:00 during the contest). This log reco
 - Verified the production build, TypeScript compilation, and five automated tests. This repair remains local and was not republished to the unwanted `chatgpt.site` address.
 - Public judging flow repair commit: `05e82f7` (`fix: connect public Agent flow to learning`).
 
+## 2026-08-22 — Submission README refresh
+
+- Rewrote the hackathon branch README as an English-first judge guide while retaining the in-place Chinese language option.
+- Documented the no-account path from Agent evidence intake to a real retrieval card in `/demo`.
+- Mapped Gemini 3.5 Flash, Google ADK, Cloud Run, Firestore, and Pub/Sub to their concrete roles and recorded the verified live-cloud evidence identifiers.
+- Marked the independent public frontend deployment as pending instead of presenting the obsolete temporary host as the submission demo.
+- Added explicit links between the stable `main` foundation and the separate contest-period branch.
+
 ## Logging rules
 
 - Add a dated entry for each material feature, deployment, or submission change.
