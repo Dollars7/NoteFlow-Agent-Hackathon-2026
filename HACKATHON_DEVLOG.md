@@ -81,6 +81,7 @@ All timestamps use America/Phoenix (UTC-07:00 during the contest). This log reco
 - Preserved the original NoteFlow responsibility: the Flow Engine chooses what to retrieve, while the Agent decides when to invite learning and how the rhythm adapts.
 - Separated current working functionality from planned notification, scheduling, and feedback-loop work so the README does not overstate the deployed product.
 - Added Vercel import guidance: deploy the repository-root web project only; keep `hackathon-agent` on Cloud Run.
+- Product-direction alignment commit: `b49583e` (`docs: align submission with learning rhythm vision`).
 
 ## Logging rules
 
