@@ -37,6 +37,7 @@ All timestamps use America/Phoenix (UTC-07:00 during the contest). This log reco
 - Rechecked the official submission rules: the application must support English, the hosted demo may use any publicly testable website URL, and a GitHub, GitLab, or Bitbucket repository URL is explicitly required. The rules do not require the frontend itself to be hosted by Google.
 - Confirmed that GitHub Pages is a technical hosting constraint rather than a contest restriction: the current authenticated APIs and server-side Agent proxy cannot run on static Pages without a separate public backend boundary.
 - Verified the production build, TypeScript compilation, and four automated tests. No new public deployment was made during this change.
+- Unified bilingual experience commit: `7815e99` (`feat: unify English and Chinese experiences`).
 
 ## Logging rules
 
