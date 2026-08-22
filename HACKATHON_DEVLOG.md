@@ -66,6 +66,13 @@ All timestamps use America/Phoenix (UTC-07:00 during the contest). This log reco
 - Updated repository links and the provenance disclosure for the standalone submission context.
 - Standalone repository preparation commit: `3b06399` (`docs: prepare standalone hackathon repository`).
 
+## 2026-08-22 — Repository consolidation
+
+- Verified that `Dollars7/NoteFlow-Agent-Hackathon-2026` is public and uses `main` as its default branch before retiring the duplicate remote branch.
+- Updated the original NoteFlow `main` README to point all contest links to the standalone repository in commit `fb777e1`.
+- Deleted only the duplicate `codex/all-things-agentic-hackathon` branch from the original GitHub repository after it had no remaining README references.
+- Retained the local source branch and the complete standalone repository history so the deleted remote branch remains recoverable.
+
 ## Logging rules
 
 - Add a dated entry for each material feature, deployment, or submission change.

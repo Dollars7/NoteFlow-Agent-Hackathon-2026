@@ -7,11 +7,12 @@ This document is part of the submission evidence for the 2026 All Things Agentic
 - Baseline commit: `c42c840c2d881207ed6763a3280d198bc1189bfc`
 - Baseline commit date: 2026-07-23 14:29:23 -07:00
 - Hackathon branch created: 2026-08-18
-- Hackathon branch: `codex/all-things-agentic-hackathon`
+- Historical hackathon source branch: `codex/all-things-agentic-hackathon`
 - Standalone submission repository: `Dollars7/NoteFlow-Agent-Hackathon-2026`
 - Standalone repository source point: `c4a37a94ef86eacb6ef5b0ec8321dd9066a10fe1`
+- Original repository remote branch retired: 2026-08-22, after the standalone repository was verified public with default branch `main`
 
-The standalone repository retains the history before the branch point. It must not be rewritten or presented as contest-period work. The original `Dollars7/NoteFlow` repository also remains intact.
+The standalone repository retains the history before the branch point. It must not be rewritten or presented as contest-period work. The original `Dollars7/NoteFlow` repository and its stable `main` branch remain intact; a local backup of the historical source branch is also retained for recovery.
 
 ## Pre-existing NoteFlow components
 
