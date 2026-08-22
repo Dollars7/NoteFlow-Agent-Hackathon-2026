@@ -96,7 +96,7 @@ function SignIn({ supabase }: { supabase: SupabaseClient }) {
     const { error: signInError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: new URL("/", window.location.origin).toString(),
+        redirectTo: new URL("/account", window.location.origin).toString(),
       },
     });
     if (signInError) {
@@ -272,38 +272,27 @@ function MissingAuthConfiguration() {
         </div>
 
         <div className="auth-intro">
-          <p className="eyebrow">{t("Your private learning workspace", "你的私人学习空间")}</p>
-          <h1 id="signin-title">{t("Continue your Flow", "继续你的 Flow")}</h1>
-          <p>{t("Choose Google or receive a one-time email code. No new password.", "选择 Google，或者让我们发一个邮箱验证码。不创建新密码。")}</p>
-        </div>
-
-        <button className="google-signin" type="button" disabled>
-          <GoogleIcon />
-          {t("Continue with Google", "使用 Google 继续")}
-        </button>
-        <div className="auth-divider"><span>{t("or use an email code", "或使用邮箱验证码")}</span></div>
-        <div className="auth-form">
-          <label htmlFor="signin-email-preview">{t("Email", "邮箱")}</label>
-          <input
-            id="signin-email-preview"
-            type="email"
-            placeholder="you@example.com"
-            disabled
-          />
-          <button className="email-code-button" type="button" disabled>
-            {t("Send verification code", "发送验证码")}
-          </button>
+          <p className="eyebrow">{t("Optional personal account", "可选的个人账户")}</p>
+          <h1 id="signin-title">{t("Guest learning is ready.", "访客学习已经可以使用。")}</h1>
+          <p>{t(
+            "Personal account sign-in is not enabled on this deployment. It is not required for the public hackathon experience.",
+            "此部署尚未启用个人账户登录。公开 Hackathon 体验不需要登录。",
+          )}</p>
         </div>
 
         <div className="auth-setup-notice">
-          <strong>{t("Supabase setup is still required", "还差一次 Supabase 配置")}</strong>
-          <span>{t("Add these two public values to enable real sign-in:", "添加下面两个公开参数后即可真实登录：")}</span>
-          <code>NEXT_PUBLIC_SUPABASE_URL</code>
-          <code>NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code>
+          <strong>{t("Nothing is blocked", "不会影响体验")}</strong>
+          <span>{t(
+            "The guest workspace keeps learning state in this browser and connects to the same live Google Cloud Agent.",
+            "访客学习空间会把学习状态保存在当前浏览器，并连接同一个 Google Cloud Agent。",
+          )}</span>
         </div>
 
         <a className="email-code-button auth-guest-link" href="/demo">
-          {t("Enter the guest workspace without signing in", "无需登录，进入访客学习")}
+          {t("Enter guest learning", "进入访客学习")}
+        </a>
+        <a className="resend-code-button auth-guest-link" href="/hackathon">
+          {t("Return to the hackathon entry", "返回参赛页面")}
         </a>
       </section>
     </main>

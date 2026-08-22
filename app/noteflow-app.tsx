@@ -19,6 +19,7 @@ import {
   type RetrievalEvidence,
   type SkillState,
 } from "../lib/flow-engine";
+import type { HackathonHandoff } from "../lib/hackathon-handoff";
 import { GoalPlanner } from "./goal-planner";
 import { LanguageSwitch, useLocale, type Locale } from "./locale";
 import { NoteLibrary } from "./note-library";
@@ -58,6 +59,7 @@ type NoteFlowAppProps = {
   getAccessToken: () => Promise<string | null>;
   onSignOut: () => Promise<void>;
   isGuest?: boolean;
+  agentHandoff?: HackathonHandoff | null;
 };
 
 function richText(line: string): ReactNode[] {
@@ -219,6 +221,7 @@ export default function NoteFlowApp({
   getAccessToken,
   onSignOut,
   isGuest = false,
+  agentHandoff = null,
 }: NoteFlowAppProps) {
   const { locale, t } = useLocale();
   const storageKey = `noteflow-memory-v4:${user.id}`;
@@ -250,6 +253,7 @@ export default function NoteFlowApp({
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const mediaStream = useRef<MediaStream | null>(null);
   const audioChunks = useRef<Blob[]>([]);
+  const appliedHandoffId = useRef<string | null>(null);
 
   const allCards = useMemo(() => {
     const edits = new Map(generatedCards.map((card) => [card.id, card]));
@@ -375,6 +379,55 @@ export default function NoteFlowApp({
 
     return () => window.clearTimeout(saveTimer);
   }, [cardMemory, deletedCardIds, evidence, generatedCards, generatedNotes, getAccessToken, goalProfile, hasRestored, legacyAccountStorageKey, skills, storageKey]);
+
+  useEffect(() => {
+    if (!hasRestored || !agentHandoff || appliedHandoffId.current === agentHandoff.id) return;
+    appliedHandoffId.current = agentHandoff.id;
+
+    const launchCard: NoteCard = {
+      id: agentHandoff.id,
+      skillId: "ood",
+      tags: ["agent-selected", "hackathon", "retrieval"],
+      mode: "design",
+      title: agentHandoff.title,
+      prompt: agentHandoff.nextRetrievalPrompt,
+      hintKeywords: agentHandoff.locale === "zh"
+        ? ["核心权衡", "用户影响", "设计决策"]
+        : ["core tradeoff", "user impact", "design decision"],
+      scaffold: agentHandoff.locale === "zh"
+        ? ["先说出必须保护的系统行为。", "明确你愿意放宽的保证。", "说明用户会看到什么，以及你如何缓解。"]
+        : ["State the system behavior you must protect.", "Name the guarantee you are willing to relax.", "Explain what the user will observe and how you would mitigate it."],
+      noteMarkdown: agentHandoff.locale === "zh"
+        ? `## Agent 报告\n\n${agentHandoff.agentReport}\n\n## 原始学习证据\n\n${agentHandoff.sourceNotes}`
+        : `## Agent report\n\n${agentHandoff.agentReport}\n\n## Original learning evidence\n\n${agentHandoff.sourceNotes}`,
+      goalRelevance: { "amazon-sde2": 0.95, "google-l4": 0.95 },
+      dependencyValue: 0.92,
+      uncertainty: 0.82,
+    };
+
+    setGoalProfile((profile) => ({ ...profile, title: agentHandoff.goal }));
+    setGeneratedCards((cards) => cards.some((card) => card.id === launchCard.id) ? cards : [...cards, launchCard]);
+    setCardMemory((memory) => ({
+      ...memory,
+      [launchCard.id]: memory[launchCard.id] ?? {
+        intervalScale: 1,
+        skipCount: 0,
+        needsSplit: false,
+        prerequisiteNeeded: false,
+      },
+    }));
+    setDeletedCardIds((ids) => ids.filter((id) => id !== launchCard.id));
+    setSelectedNoteId(launchCard.id);
+    setSessionQueue([launchCard.id]);
+    setWorkspaceView("learn");
+    setHintDepth(0);
+    setReactionMs(0);
+    setAttemptOutcome(null);
+    setMemoryDelta(null);
+    setGapSentence("");
+    attemptStartedAt.current = performance.now();
+    setPhase("attempt");
+  }, [agentHandoff, hasRestored]);
 
   const clearRecording = () => {
     if (mediaRecorder.current?.state === "recording") mediaRecorder.current.stop();

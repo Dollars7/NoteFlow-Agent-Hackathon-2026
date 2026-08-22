@@ -39,6 +39,15 @@ All timestamps use America/Phoenix (UTC-07:00 during the contest). This log reco
 - Verified the production build, TypeScript compilation, and four automated tests. No new public deployment was made during this change.
 - Unified bilingual experience commit: `7815e99` (`feat: unify English and Chinese experiences`).
 
+## 2026-08-22 — Public judging flow repair
+
+- Reviewed a real mobile capture showing that the public root route exposed an unconfigured Supabase sign-in surface.
+- Replaced the root sign-in gate with the public hackathon product and moved the pre-existing personal-account flow to the optional `/account` route.
+- Removed disabled Google and email controls from deployments without Supabase configuration; the optional account page now states honestly that guest learning remains available.
+- Reduced the Agent intake to one explicit run action instead of a hidden two-click clarification sequence.
+- Added a direct handoff from the Agent report to the guest learning workspace. The selected retrieval prompt, learning goal, source evidence, and Agent report now become a real practice card and open immediately in the retrieval flow.
+- Verified the production build, TypeScript compilation, and five automated tests. This repair remains local and was not republished to the unwanted `chatgpt.site` address.
+
 ## Logging rules
 
 - Add a dated entry for each material feature, deployment, or submission change.

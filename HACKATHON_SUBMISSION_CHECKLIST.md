@@ -7,6 +7,8 @@ This checklist separates completed repository work from actions that require the
 - [x] Preserve the pre-existing NoteFlow history and baseline hash
 - [x] Create a separate hackathon branch
 - [x] Add a default-English Collaborative Partner experience with an in-place Chinese translation
+- [x] Make the public entry immediately usable without sign-in
+- [x] Carry the Agent-selected next retrieval into the real guest learning flow
 - [x] Implement Gemini 3.5 Flash with Google ADK
 - [x] Implement Firestore model mutations and immutable versions
 - [x] Implement Pub/Sub background jobs and a Cloud Run worker entry point

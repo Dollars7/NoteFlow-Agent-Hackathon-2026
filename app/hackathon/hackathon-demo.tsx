@@ -1,10 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  extractNextRetrieval,
+  hackathonHandoffKey,
+  type HackathonHandoff,
+} from "../../lib/hackathon-handoff";
 import { useLocale, type Locale } from "../locale";
 import styles from "./hackathon.module.css";
 
-type Stage = "intake" | "clarify" | "running" | "complete" | "error";
+type Stage = "intake" | "running" | "complete" | "error";
 
 const samples: Record<Locale, { goal: string; notes: string }> = {
   en: {
@@ -84,17 +89,11 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
 
   const runLabel = useMemo(() => {
     if (stage === "running") return t("Building the learning path…", "正在构建学习路径…");
-    if (stage === "clarify") return t("Continue with this context", "带着这些信息继续");
     if (stage === "complete") return t("Run again with updated evidence", "用更新后的证据再次运行");
-    return t("Let NoteFlow lead", "让 NoteFlow 带路");
+    return t("Build my learning path", "生成我的学习路径");
   }, [stage, t]);
 
   async function runAgent() {
-    if (stage === "intake") {
-      setStage("clarify");
-      return;
-    }
-
     setStage("running");
     setAgentText("");
 
@@ -134,6 +133,22 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
       ));
       setStage("error");
     }
+  }
+
+  function practiceNextStep() {
+    if (!agentText || stage !== "complete") return;
+    const handoff: HackathonHandoff = {
+      id: `agent-retrieval-${Date.now()}`,
+      locale,
+      goal: goal.trim(),
+      sourceNotes: notes.trim(),
+      title: t("Agent-selected next retrieval", "Agent 选择的下一次检索"),
+      nextRetrievalPrompt: extractNextRetrieval(agentText, locale),
+      agentReport: agentText,
+      createdAt: new Date().toISOString(),
+    };
+    window.localStorage.setItem(hackathonHandoffKey, JSON.stringify(handoff));
+    window.location.assign("/demo?source=agent");
   }
 
   return (
@@ -187,20 +202,18 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
             <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={6} />
           </label>
 
-          {stage !== "intake" && (
-            <label className={`${styles.field} ${styles.clarification}`}>
-              <span>{t("One clarification from NoteFlow", "NoteFlow 的一个澄清问题")}</span>
-              <p>{t(
-                "Which moment matters more right now: explaining the concept clearly, or making the right design decision under pressure?",
-                "此刻哪件事更重要：把概念解释清楚，还是在压力下做出正确的设计决策？",
-              )}</p>
-              <input
-                value={answer}
-                onChange={(event) => setAnswer(event.target.value)}
-                placeholder={t("e.g. Make the design decision under pressure", "例如：在压力下做出正确的设计决策")}
-              />
-            </label>
-          )}
+          <label className={`${styles.field} ${styles.clarification}`}>
+            <span>{t("One useful clarification · optional", "一个有用的澄清问题 · 可选")}</span>
+            <p>{t(
+              "Which moment matters more right now: explaining the concept clearly, or making the right design decision under pressure?",
+              "此刻哪件事更重要：把概念解释清楚，还是在压力下做出正确的设计决策？",
+            )}</p>
+            <input
+              value={answer}
+              onChange={(event) => setAnswer(event.target.value)}
+              placeholder={t("e.g. Make the design decision under pressure", "例如：在压力下做出正确的设计决策")}
+            />
+          </label>
 
           <button
             className={styles.runButton}
@@ -239,6 +252,20 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
                 "The agent will return one diagnosis, one next retrieval prompt, and an auditable change to the learning model.",
                 "Agent 将返回一项诊断、一个下一次检索问题，以及一次可审计的学习模型变更。",
               )}</p>
+            </div>
+          )}
+          {stage === "complete" && agentText && (
+            <div className={styles.handoffAction}>
+              <div>
+                <strong>{t("The plan now becomes practice.", "现在把计划变成练习。")}</strong>
+                <span>{t(
+                  "Open the exact next retrieval selected by the Agent. Your goal, evidence, and Agent report move with it.",
+                  "打开 Agent 选择的下一次检索；你的目标、证据和 Agent 报告会一起带入学习空间。",
+                )}</span>
+              </div>
+              <button type="button" onClick={practiceNextStep}>
+                {t("Practice the next step", "练习下一步")} <span aria-hidden="true">→</span>
+              </button>
             </div>
           )}
         </div>
