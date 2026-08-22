@@ -58,6 +58,13 @@ All timestamps use America/Phoenix (UTC-07:00 during the contest). This log reco
 - Added explicit links between the stable `main` foundation and the separate contest-period branch.
 - Submission README refresh commit: `0f9ec77` (`docs: refresh hackathon branch README`).
 
+## 2026-08-22 — Standalone submission repository
+
+- Prepared `Dollars7/NoteFlow-Agent-Hackathon-2026` as the public, judge-facing repository with the contest branch mapped to its `main` branch.
+- Preserved the full inherited Git history and fixed pre-contest baseline instead of starting an untraceable clean history.
+- Kept the original `Dollars7/NoteFlow` repository and its stable `main` branch unchanged.
+- Updated repository links and the provenance disclosure for the standalone submission context.
+
 ## Logging rules
 
 - Add a dated entry for each material feature, deployment, or submission change.

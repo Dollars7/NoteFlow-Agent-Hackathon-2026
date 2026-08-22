@@ -2,9 +2,9 @@
 
 > **The system carries decision cost. The learner carries retrieval cost.**
 
-This is the submission branch for the **2026 All Things Agentic Hackathon**, entered in the **Collaborative Partner** category.
+This is the standalone submission repository for the **2026 All Things Agentic Hackathon**, entered in the **Collaborative Partner** category.
 
-Branch: [`codex/all-things-agentic-hackathon`](https://github.com/Dollars7/NoteFlow/tree/codex/all-things-agentic-hackathon)
+Repository: [`Dollars7/NoteFlow-Agent-Hackathon-2026`](https://github.com/Dollars7/NoteFlow-Agent-Hackathon-2026) · submission branch: `main`
 
 NoteFlow Agent reads a learner's goal and messy evidence, identifies the highest-value gap, persists an updated learning model, queues deeper asynchronous analysis, and turns its recommendation into an immediate retrieval exercise. It is a learning loop, not a planning-only chatbot.
 
@@ -145,6 +145,6 @@ NoteFlow existed before the contest. The repository preserves that history and d
 - direct Agent-to-practice handoff;
 - contest architecture, evaluation evidence, and reproducibility documentation.
 
-The stable pre-contest product remains on [`main`](https://github.com/Dollars7/NoteFlow/tree/main). The two branches are intentionally kept separate for transparent judging.
+The stable pre-contest product remains in the original NoteFlow repository on [`main`](https://github.com/Dollars7/NoteFlow/tree/main). This standalone repository preserves the inherited Git history and the documented baseline instead of resetting or concealing the pre-existing work.
 
 > **Don't plan. Retrieve. Remember.**
