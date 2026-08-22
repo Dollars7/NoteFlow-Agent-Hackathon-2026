@@ -47,6 +47,7 @@ All timestamps use America/Phoenix (UTC-07:00 during the contest). This log reco
 - Reduced the Agent intake to one explicit run action instead of a hidden two-click clarification sequence.
 - Added a direct handoff from the Agent report to the guest learning workspace. The selected retrieval prompt, learning goal, source evidence, and Agent report now become a real practice card and open immediately in the retrieval flow.
 - Verified the production build, TypeScript compilation, and five automated tests. This repair remains local and was not republished to the unwanted `chatgpt.site` address.
+- Public judging flow repair commit: `05e82f7` (`fix: connect public Agent flow to learning`).
 
 ## Logging rules
 
