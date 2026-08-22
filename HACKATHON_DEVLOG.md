@@ -56,6 +56,7 @@ All timestamps use America/Phoenix (UTC-07:00 during the contest). This log reco
 - Mapped Gemini 3.5 Flash, Google ADK, Cloud Run, Firestore, and Pub/Sub to their concrete roles and recorded the verified live-cloud evidence identifiers.
 - Marked the independent public frontend deployment as pending instead of presenting the obsolete temporary host as the submission demo.
 - Added explicit links between the stable `main` foundation and the separate contest-period branch.
+- Submission README refresh commit: `0f9ec77` (`docs: refresh hackathon branch README`).
 
 ## Logging rules
 
