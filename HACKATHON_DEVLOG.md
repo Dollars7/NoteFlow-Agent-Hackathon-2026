@@ -72,6 +72,7 @@ All timestamps use America/Phoenix (UTC-07:00 during the contest). This log reco
 - Updated the original NoteFlow `main` README to point all contest links to the standalone repository in commit `fb777e1`.
 - Deleted only the duplicate `codex/all-things-agentic-hackathon` branch from the original GitHub repository after it had no remaining README references.
 - Retained the local source branch and the complete standalone repository history so the deleted remote branch remains recoverable.
+- Repository consolidation record commit: `7ccfaf3` (`docs: record repository consolidation`).
 
 ## Logging rules
 
