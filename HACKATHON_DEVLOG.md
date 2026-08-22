@@ -27,6 +27,7 @@ All timestamps use America/Phoenix (UTC-07:00 during the contest). This log reco
 - The first running revision restarted when the ADK loader scanned `background-worker.mjs` as an agent entry point. Fixed it by isolating `agent.ts` under the container’s `agents/agent/` directory.
 - Deployed the corrected ADK service and a separate private background worker to Cloud Run with zero minimum instances and one maximum instance each.
 - Verified a real Gemini 3.5 Flash run: immutable mutation `9aPqpj5FpIXwgGf89HVQ`, Pub/Sub message `21517632790505643`, worker HTTP 204, and Firestore background status `complete` at `2026-08-22T17:43:24.168Z`.
+- Live cloud and guest-learning commit: `70238f84ed4dff20357c6644644e2164016df132` (`feat: deploy live hackathon learning agent`).
 
 ## Logging rules
 
