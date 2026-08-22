@@ -10,6 +10,7 @@ This directory is the newly created Google ADK service for the 2026 All Things A
 - Firestore for current and immutable learning-model versions
 - Pub/Sub for asynchronous deep-analysis jobs
 - A separate authenticated Cloud Run worker that consumes Pub/Sub push events, calls Gemini 3.5 Flash, and writes the completed analysis to Firestore
+- A same-origin Sites proxy and shared server-side bearer token, so the public browser never receives the Cloud Run credential
 
 ## Run locally
 
@@ -30,15 +31,14 @@ The background worker can be smoke-tested without invoking Gemini by starting `p
 
 ## Deploy to Cloud Run
 
-From this directory, set `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_LOCATION`, then run `pnpm deploy -- --project=$GOOGLE_CLOUD_PROJECT --region=$GOOGLE_CLOUD_LOCATION`.
+The checked-in Dockerfile serves only the isolated `agents/agent/agent.ts` entry point through the Google ADK API server. Deploy this directory from source to Cloud Run with the project set in `.env`, the Vertex location set to `global`, and a generated `NOTEFLOW_AGENT_SHARED_SECRET` supplied as a Cloud Run runtime value. Keep minimum instances at zero and cap maximum instances for the public demo.
 
 After deployment:
 
 1. Grant the Cloud Run service identity Firestore user and Pub/Sub publisher roles.
-2. Configure allowed origins for the public NoteFlow frontend.
-3. Set the frontend variable `NEXT_PUBLIC_NOTEFLOW_AGENT_URL` to the Cloud Run URL.
-4. Set `NEXT_PUBLIC_NOTEFLOW_AGENT_APP_NAME=agent` unless the deployed service reports another name from `/list-apps`.
-5. Run the demo and verify both a Firestore version document and Pub/Sub message.
+2. Store the Cloud Run URL as the server-only Sites variable `NOTEFLOW_AGENT_URL`.
+3. Store the same generated bearer value as `NOTEFLOW_AGENT_SHARED_SECRET` in Cloud Run and as a secret Sites variable.
+4. Run the demo and verify both a Firestore version document and Pub/Sub message.
 
 Deploy `background-worker.mjs` as a second, authenticated Cloud Run service using `pnpm worker` as its start command. Create a Pub/Sub push subscription for `noteflow-deep-analysis` that targets the worker URL and uses an OIDC service account with Cloud Run Invoker permission. Keep the worker private; Pub/Sub should be its only caller.
 

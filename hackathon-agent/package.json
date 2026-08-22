@@ -9,6 +9,7 @@
   },
   "scripts": {
     "dev": "adk api_server",
+    "start": "node server.mjs",
     "test": "tsc --noEmit",
     "deploy": "adk deploy cloud_run --service_name=noteflow-agent --with_ui",
     "worker": "node background-worker.mjs"

@@ -17,6 +17,17 @@ All timestamps use America/Phoenix (UTC-07:00 during the contest). This log reco
 - Public experience commit: `b37acae` (`feat: add collaborative partner hackathon experience`).
 - Google agent and cloud workflow commit: `62b3ee5` (`feat: add Google ADK learning partner service`).
 
+## 2026-08-22 — Live Google Cloud evidence
+
+- Connected entrant-owned billing project `project-0069ddaa-e176-4b98-9db` without adding API keys or service-account files to the repository.
+- Created a deletion-protected Firestore Native database in `us-central1`, the `noteflow-deep-analysis` Pub/Sub topic, and separate least-privilege runtime identities for the interactive agent, background worker, and Pub/Sub invoker.
+- Added a server-only bearer boundary between the public Sites frontend and the Cloud Run ADK API server.
+- Added the public `/demo` route so judges can use the disclosed pre-existing retrieval-first learning workspace without creating an account.
+- The first source deployment was blocked because the new-project build identity could not read the Cloud Run source bucket. Fixed it with bucket-scoped object-viewer permission plus repository-scoped Artifact Registry writer and log-writer permissions.
+- The first running revision restarted when the ADK loader scanned `background-worker.mjs` as an agent entry point. Fixed it by isolating `agent.ts` under the container’s `agents/agent/` directory.
+- Deployed the corrected ADK service and a separate private background worker to Cloud Run with zero minimum instances and one maximum instance each.
+- Verified a real Gemini 3.5 Flash run: immutable mutation `9aPqpj5FpIXwgGf89HVQ`, Pub/Sub message `21517632790505643`, worker HTTP 204, and Firestore background status `complete` at `2026-08-22T17:43:24.168Z`.
+
 ## Logging rules
 
 - Add a dated entry for each material feature, deployment, or submission change.

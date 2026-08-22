@@ -35,16 +35,14 @@ function extractAgentText(events: unknown): string {
   return "The agent completed the run without a text response.";
 }
 
-export function HackathonDemo() {
+export function HackathonDemo({ connected }: { connected: boolean }) {
   const [goal, setGoal] = useState("Pass a senior backend systems interview in 21 days");
   const [notes, setNotes] = useState(sampleNotes);
   const [answer, setAnswer] = useState("");
   const [stage, setStage] = useState<Stage>("intake");
   const [agentText, setAgentText] = useState("");
 
-  const agentUrl = process.env.NEXT_PUBLIC_NOTEFLOW_AGENT_URL?.replace(/\/$/, "") ?? "";
-  const appName = process.env.NEXT_PUBLIC_NOTEFLOW_AGENT_APP_NAME ?? "agent";
-  const isConnected = Boolean(agentUrl);
+  const isConnected = connected;
   const runLabel = useMemo(() => {
     if (stage === "running") return "Building the learning path…";
     if (stage === "clarify") return "Continue with this context";
@@ -72,42 +70,17 @@ export function HackathonDemo() {
     }
 
     try {
-      const userId = `judge-${crypto.randomUUID()}`;
-      const sessionId = crypto.randomUUID();
-      const sessionResponse = await fetch(
-        `${agentUrl}/apps/${encodeURIComponent(appName)}/users/${encodeURIComponent(userId)}/sessions/${encodeURIComponent(sessionId)}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ goal, sourceType: "messy_notes" }),
-        },
-      );
-
-      if (!sessionResponse.ok && sessionResponse.status !== 409) {
-        throw new Error(`Session creation failed (${sessionResponse.status}).`);
-      }
-
-      const prompt = [
-        `Learning goal: ${goal}`,
-        `Learner clarification: ${answer || "No additional context provided."}`,
-        "Messy source notes:",
-        notes,
-        "Lead the learner. Diagnose the knowledge structure, mutate the learning model with your tools, and give exactly one next retrieval prompt.",
-      ].join("\n\n");
-
-      const runResponse = await fetch(`${agentUrl}/run`, {
+      const runResponse = await fetch("/api/hackathon-agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          appName,
-          userId,
-          sessionId,
-          newMessage: { role: "user", parts: [{ text: prompt }] },
-        }),
+        body: JSON.stringify({ goal, notes, clarification: answer }),
       });
 
-      if (!runResponse.ok) throw new Error(`Agent run failed (${runResponse.status}).`);
-      setAgentText(extractAgentText(await runResponse.json()));
+      const payload = (await runResponse.json()) as { events?: unknown; error?: string };
+      if (!runResponse.ok) {
+        throw new Error(payload.error || `Agent run failed (${runResponse.status}).`);
+      }
+      setAgentText(extractAgentText(payload.events));
       setStage("complete");
     } catch (error) {
       setAgentText(error instanceof Error ? error.message : "The cloud agent could not be reached.");
@@ -130,7 +103,7 @@ export function HackathonDemo() {
             <strong>{isConnected ? "Cloud agent connected" : "Transparent local preview"}</strong>
             <span>
               {isConnected
-                ? "Responses come from the deployed ADK agent."
+                ? "Responses come from Gemini 3.5 through the deployed Google ADK agent."
                 : "The interface uses labeled sample output until a Cloud Run URL is configured."}
             </span>
           </div>

@@ -43,4 +43,11 @@ If the organizers interpret “New Projects Only” more narrowly, this entry wi
 
 ## Current deployment status
 
-As of 2026-08-18, the new web experience and both Google Cloud service entry points run locally and pass automated checks. They have not yet been deployed to the entrant’s Google Cloud project, so the submission must not claim a live Cloud Run, Firestore, Pub/Sub, or Vertex AI deployment until deployment evidence is added.
+As of 2026-08-22, the contest-period Google agent system is live in entrant-owned Google Cloud project `project-0069ddaa-e176-4b98-9db`:
+
+- The Google ADK API server runs on Cloud Run with Gemini 3.5 Flash through Vertex AI.
+- Each model mutation writes both a current Firestore document and an immutable version.
+- Pub/Sub delivers safe-digest background jobs to a separate private Cloud Run worker using OIDC.
+- The public Sites frontend reaches the ADK service only through a same-origin server proxy; the browser never receives the shared Cloud Run credential.
+- A judge-safe end-to-end run persisted mutation `9aPqpj5FpIXwgGf89HVQ`, queued Pub/Sub message `21517632790505643`, and completed the corresponding background analysis.
+- The full pre-existing retrieval-first learning workspace is available separately as a no-account `/demo` route and remains disclosed as pre-existing work.

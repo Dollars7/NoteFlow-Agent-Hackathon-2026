@@ -3,11 +3,13 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("declares the mandatory Google agent stack and honest preview behavior", async () => {
-  const [agent, worker, agentPackageText, demo, disclosure, architecture, envExample] = await Promise.all([
+  const [agent, worker, server, agentPackageText, demo, proxy, disclosure, architecture, envExample] = await Promise.all([
     readFile(new URL("../hackathon-agent/agent.ts", import.meta.url), "utf8"),
     readFile(new URL("../hackathon-agent/background-worker.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../hackathon-agent/server.mjs", import.meta.url), "utf8"),
     readFile(new URL("../hackathon-agent/package.json", import.meta.url), "utf8"),
     readFile(new URL("../app/hackathon/hackathon-demo.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/hackathon-agent/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../HACKATHON_DISCLOSURE.md", import.meta.url), "utf8"),
     readFile(new URL("../docs/HACKATHON_ARCHITECTURE.md", import.meta.url), "utf8"),
     readFile(new URL("../hackathon-agent/.env.example", import.meta.url), "utf8"),
@@ -31,10 +33,14 @@ test("declares the mandatory Google agent stack and honest preview behavior", as
   assert.match(worker, /model = 'gemini-3\.5-flash'/);
   assert.match(worker, /backgroundAnalyses/);
   assert.match(worker, /request\.url === '\/healthz'/);
+  assert.match(server, /new AdkApiServer/);
+  assert.match(server, /NOTEFLOW_AGENT_SHARED_SECRET/);
 
   assert.match(demo, /Transparent local preview/);
   assert.match(demo, /never presents sample output as Gemini output|labeled sample output/i);
-  assert.match(demo, /NEXT_PUBLIC_NOTEFLOW_AGENT_URL/);
+  assert.match(demo, /\/api\/hackathon-agent/);
+  assert.match(proxy, /NOTEFLOW_AGENT_URL/);
+  assert.match(proxy, /NOTEFLOW_AGENT_SHARED_SECRET/);
   assert.match(disclosure, /c42c840c2d881207ed6763a3280d198bc1189bfc/);
   assert.match(disclosure, /Pre-existing NoteFlow components/);
   assert.match(disclosure, /Newly created hackathon scope/);
@@ -61,4 +67,22 @@ test("serves a public, self-identifying hackathon experience", async () => {
   assert.match(html, /Collaborative Partner · 2026 entry/);
   assert.match(html, /Transparent local preview/);
   assert.match(html, /hackathon-og\.png/);
+  assert.match(html, /Try the learning workspace/);
+});
+
+test("serves the complete learning workspace without requiring an account", async () => {
+  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+  workerUrl.searchParams.set("guest-workspace-test", `${process.pid}-${Date.now()}`);
+  const { default: worker } = await import(workerUrl.href);
+  const response = await worker.fetch(
+    new Request("http://localhost/demo", { headers: { accept: "text/html" } }),
+    { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } },
+    { waitUntil() {}, passThroughOnException() {} },
+  );
+
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /访客演示 · 保存在当前浏览器/);
+  assert.match(html, /开始本次学习/);
+  assert.match(html, /笔记库/);
 });

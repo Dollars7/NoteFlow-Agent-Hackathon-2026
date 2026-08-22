@@ -18,15 +18,15 @@ This checklist separates completed repository work from actions that require the
 ## Requires entrant account access
 
 - [ ] Ask Devpost to confirm the disclosed pre-existing-foundation interpretation
-- [ ] Create or select a Google Cloud billing project
-- [ ] Enable Vertex AI, Cloud Run, Firestore, Pub/Sub, Cloud Build, and Artifact Registry
-- [ ] Create the Firestore database and `noteflow-deep-analysis` topic
-- [ ] Deploy the ADK service and private background worker to Cloud Run
-- [ ] Create the authenticated Pub/Sub push subscription
-- [ ] Apply least-privilege service-account roles
-- [ ] Configure the deployed frontend with the Cloud Run agent URL
-- [ ] Capture Cloud Run, Vertex AI, Firestore, and Pub/Sub proof for the demo video
-- [ ] Run an end-to-end test using a judge-safe sample account
+- [x] Create or select a Google Cloud billing project
+- [x] Enable Vertex AI, Cloud Run, Firestore, Pub/Sub, Cloud Build, and Artifact Registry
+- [x] Create the Firestore database and `noteflow-deep-analysis` topic
+- [x] Deploy the ADK service and private background worker to Cloud Run
+- [x] Create the authenticated Pub/Sub push subscription
+- [x] Apply least-privilege service-account roles
+- [x] Configure the deployed frontend with the Cloud Run agent URL and server-only credential
+- [x] Capture Cloud Run, Vertex AI, Firestore, and Pub/Sub proof identifiers for the demo video
+- [x] Run an end-to-end test using judge-safe sample data
 - [ ] Publish the repository or grant the required judge accounts access
 - [ ] Record an English demo of no more than four minutes
 - [ ] Complete the Devpost description, technology list, data-source disclosure, findings, and testing instructions

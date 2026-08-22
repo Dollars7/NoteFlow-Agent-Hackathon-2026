@@ -2475,6 +2475,18 @@ input[type="checkbox"] {
   padding: 10px 12px;
 }
 
+.auth-guest-link {
+  align-items: center;
+  border-radius: 10px;
+  display: flex;
+  font-size: 12px;
+  font-weight: 720;
+  justify-content: center;
+  margin-top: 14px;
+  min-height: 44px;
+  text-decoration: none;
+}
+
 .auth-loading-card {
   align-items: center;
   color: var(--muted);

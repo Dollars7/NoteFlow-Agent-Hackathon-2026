@@ -56,6 +56,7 @@ type NoteFlowAppProps = {
   user: NoteFlowUser;
   getAccessToken: () => Promise<string | null>;
   onSignOut: () => Promise<void>;
+  isGuest?: boolean;
 };
 
 function richText(line: string): ReactNode[] {
@@ -183,6 +184,7 @@ export default function NoteFlowApp({
   user,
   getAccessToken,
   onSignOut,
+  isGuest = false,
 }: NoteFlowAppProps) {
   const storageKey = `noteflow-memory-v4:${user.id}`;
   const legacyAccountStorageKey = `noteflow-memory-v3:${user.email.trim().toLowerCase()}`;
@@ -717,7 +719,7 @@ ${gapSentence.trim()}
           <div className="header-tools">
             <div className="data-status">
               <i />
-              <span>个人空间 · 云端自动保存</span>
+              <span>{isGuest ? "访客演示 · 保存在当前浏览器" : "个人空间 · 云端自动保存"}</span>
               {phase === "post" && workspaceView === "learn" && (
                 <button className="quiet-button" type="button" onClick={resetMemory}>重置学习数据</button>
               )}
@@ -728,15 +730,25 @@ ${gapSentence.trim()}
               </span>
               <span className="account-copy">
                 <strong>{user.displayName}</strong>
-                <small>{user.authProvider === "google" ? `Google · ${user.email}` : user.email}</small>
+                <small>
+                  {isGuest
+                    ? "无需登录"
+                    : user.authProvider === "google"
+                      ? `Google · ${user.email}`
+                      : user.email}
+                </small>
               </span>
-              <button
-                className="account-signout"
-                type="button"
-                onClick={() => void onSignOut()}
-              >
-                退出
-              </button>
+              {isGuest ? (
+                <a className="account-signout" href="/hackathon">参赛页</a>
+              ) : (
+                <button
+                  className="account-signout"
+                  type="button"
+                  onClick={() => void onSignOut()}
+                >
+                  退出
+                </button>
+              )}
             </div>
           </div>
         )}

@@ -289,6 +289,10 @@ function MissingAuthConfiguration() {
           <code>NEXT_PUBLIC_SUPABASE_URL</code>
           <code>NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code>
         </div>
+
+        <a className="email-code-button auth-guest-link" href="/demo">
+          无需登录，进入访客学习
+        </a>
       </section>
     </main>
   );

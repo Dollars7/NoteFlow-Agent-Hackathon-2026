@@ -6,6 +6,8 @@ The hackathon entry separates the pre-existing web foundation from the contest-p
 flowchart LR
     Learner["Learner · messy notes + retrieval feedback"]
     Web["NoteFlow /hackathon UI<br/>public judge experience"]
+    Demo["NoteFlow /demo<br/>full guest learning workspace"]
+    Proxy["Same-origin server proxy<br/>rate-limited + server-only token"]
     API["ADK API server<br/>Cloud Run"]
     Agent["NoteFlow Learning Partner<br/>Google ADK + Gemini 3.5 Flash"]
     Persist["persist_learning_model tool"]
@@ -15,7 +17,9 @@ flowchart LR
     Worker["Background analysis worker<br/>Cloud Run"]
 
     Learner --> Web
-    Web -->|"ADK session + /run"| API
+    Web --> Demo
+    Web --> Proxy
+    Proxy -->|"authenticated ADK session + /run"| API
     API --> Agent
     Agent --> Persist
     Agent --> Queue
@@ -30,10 +34,12 @@ flowchart LR
 ## Trust boundaries
 
 - The browser never receives Gemini or Google Cloud credentials.
+- The browser also never receives the Cloud Run bearer token or service URL; the Sites server proxy holds both as runtime values.
 - Cloud Run uses its service identity and Application Default Credentials.
 - Pub/Sub messages contain only a safe source digest, not raw private notes.
 - Each model mutation writes a current document and a separate immutable version.
 - The interface labels deterministic preview output and never presents it as Gemini output.
+- The public `/demo` route exposes the pre-existing retrieval-first learning workspace without requiring a judge account; its data remains on that browser.
 
 ## Contest technology mapping
 

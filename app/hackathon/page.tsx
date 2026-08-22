@@ -32,6 +32,10 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function HackathonPage() {
+  const agentConnected = Boolean(
+    process.env.NOTEFLOW_AGENT_URL && process.env.NOTEFLOW_AGENT_SHARED_SECRET,
+  );
+
   return (
     <main className={styles.page}>
       <div className={styles.glow} aria-hidden="true" />
@@ -40,10 +44,15 @@ export default function HackathonPage() {
           <span className={styles.brandMark}>N</span>
           <span>NoteFlow Agent</span>
         </a>
-        <div className={styles.category}>Collaborative Partner · 2026 entry</div>
+        <div className={styles.headerActions}>
+          <div className={styles.category}>Collaborative Partner · 2026 entry</div>
+          <a className={styles.learningLink} href="/demo">
+            Try the learning workspace <span aria-hidden="true">→</span>
+          </a>
+        </div>
       </header>
 
-      <HackathonDemo />
+      <HackathonDemo connected={agentConnected} />
     </main>
   );
 }
