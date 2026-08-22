@@ -2539,3 +2539,48 @@ input[type="checkbox"] {
     margin-bottom: 36px;
   }
 }
+/* Shared language control: English is the initial experience; Chinese is an in-place translation. */
+.language-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(10, 14, 12, 0.72);
+}
+
+.language-switch button {
+  min-width: 38px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 999px;
+  color: #aeb8b1;
+  background: transparent;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.language-switch button.selected {
+  color: #10150f;
+  background: #c8ff6a;
+}
+
+.auth-language-switch {
+  position: fixed;
+  top: 22px;
+  right: 22px;
+  z-index: 4;
+}
+
+@media (max-width: 680px) {
+  .auth-language-switch {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+  }
+}

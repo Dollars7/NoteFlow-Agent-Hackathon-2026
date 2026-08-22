@@ -56,6 +56,10 @@
 
 .learningLink:hover { background: rgba(217, 255, 136, 0.07); }
 
+.languageSwitch {
+  flex: 0 0 auto;
+}
+
 .brand {
   align-items: center;
   color: inherit;

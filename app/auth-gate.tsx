@@ -14,6 +14,7 @@ import {
   type FormEvent,
 } from "react";
 import type { SupabaseAuthConfig } from "../lib/auth-config";
+import { LanguageSwitch, useLocale } from "./locale";
 import NoteFlowApp from "./noteflow-app";
 
 type AuthGateProps = {
@@ -81,6 +82,7 @@ export function AuthGate({ config }: AuthGateProps) {
 }
 
 function SignIn({ supabase }: { supabase: SupabaseClient }) {
+  const { t } = useLocale();
   const [step, setStep] = useState<LoginStep>("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -123,7 +125,7 @@ function SignIn({ supabase }: { supabase: SupabaseClient }) {
 
     setEmail(normalizedEmail);
     setStep("code");
-    setMessage(`验证码已发送到 ${normalizedEmail}`);
+    setMessage(t(`A verification code was sent to ${normalizedEmail}`, `验证码已发送到 ${normalizedEmail}`));
   };
 
   const sendEmailCode = (event: FormEvent) => {
@@ -156,6 +158,7 @@ function SignIn({ supabase }: { supabase: SupabaseClient }) {
 
   return (
     <main className="auth-page">
+      <LanguageSwitch className="auth-language-switch" />
       <section className="auth-card" aria-labelledby="signin-title">
         <div className="auth-brand">
           <span className="brand-mark" aria-hidden="true">N</span>
@@ -166,9 +169,12 @@ function SignIn({ supabase }: { supabase: SupabaseClient }) {
         </div>
 
         <div className="auth-intro">
-          <p className="eyebrow">你的私人学习空间</p>
-          <h1 id="signin-title">继续你的 Flow</h1>
-          <p>登录只用来识别“这是谁的笔记”。学习数据仍保存在 NoteFlow 的独立数据库中。</p>
+          <p className="eyebrow">{t("Your private learning workspace", "你的私人学习空间")}</p>
+          <h1 id="signin-title">{t("Continue your Flow", "继续你的 Flow")}</h1>
+          <p>{t(
+            "Sign-in only identifies whose notes these are. Learning data stays in NoteFlow's separate database.",
+            "登录只用来识别“这是谁的笔记”。学习数据仍保存在 NoteFlow 的独立数据库中。",
+          )}</p>
         </div>
 
         <button
@@ -178,14 +184,14 @@ function SignIn({ supabase }: { supabase: SupabaseClient }) {
           disabled={pending}
         >
           <GoogleIcon />
-          使用 Google 继续
+          {t("Continue with Google", "使用 Google 继续")}
         </button>
 
-        <div className="auth-divider"><span>或使用邮箱验证码</span></div>
+        <div className="auth-divider"><span>{t("or use an email code", "或使用邮箱验证码")}</span></div>
 
         {step === "email" ? (
           <form className="auth-form" onSubmit={sendEmailCode}>
-            <label htmlFor="signin-email">邮箱</label>
+            <label htmlFor="signin-email">{t("Email", "邮箱")}</label>
             <input
               id="signin-email"
               type="email"
@@ -198,14 +204,14 @@ function SignIn({ supabase }: { supabase: SupabaseClient }) {
               required
             />
             <button className="email-code-button" type="submit" disabled={pending}>
-              {pending ? "正在发送…" : "发送验证码"}
+              {pending ? t("Sending…", "正在发送…") : t("Send verification code", "发送验证码")}
             </button>
           </form>
         ) : (
           <form className="auth-form" onSubmit={verifyEmailCode}>
             <div className="auth-code-heading">
-              <label htmlFor="signin-code">输入邮箱中的验证码</label>
-              <button type="button" onClick={returnToEmail}>更换邮箱</button>
+              <label htmlFor="signin-code">{t("Enter the code from your email", "输入邮箱中的验证码")}</label>
+              <button type="button" onClick={returnToEmail}>{t("Change email", "更换邮箱")}</button>
             </div>
             <input
               id="signin-code"
@@ -223,7 +229,7 @@ function SignIn({ supabase }: { supabase: SupabaseClient }) {
               required
             />
             <button className="email-code-button" type="submit" disabled={pending}>
-              {pending ? "正在验证…" : "验证并进入"}
+              {pending ? t("Verifying…", "正在验证…") : t("Verify and enter", "验证并进入")}
             </button>
             <button
               className="resend-code-button"
@@ -231,7 +237,7 @@ function SignIn({ supabase }: { supabase: SupabaseClient }) {
               onClick={() => void requestEmailCode()}
               disabled={pending}
             >
-              重新发送验证码
+              {t("Resend code", "重新发送验证码")}
             </button>
           </form>
         )}
@@ -240,7 +246,10 @@ function SignIn({ supabase }: { supabase: SupabaseClient }) {
         {error && <p className="auth-error" role="alert">{error}</p>}
 
         <p className="auth-footnote">
-          不创建密码。Google 或邮箱只是钥匙；笔记、目标、Skill State 与学习记录按账号隔离。
+          {t(
+            "No password is created. Google or email is only the key; notes, goals, skill state, and learning history are isolated by account.",
+            "不创建密码。Google 或邮箱只是钥匙；笔记、目标、Skill State 与学习记录按账号隔离。",
+          )}
         </p>
       </section>
     </main>
@@ -248,8 +257,11 @@ function SignIn({ supabase }: { supabase: SupabaseClient }) {
 }
 
 function MissingAuthConfiguration() {
+  const { t } = useLocale();
+
   return (
     <main className="auth-page">
+      <LanguageSwitch className="auth-language-switch" />
       <section className="auth-card" aria-labelledby="signin-title">
         <div className="auth-brand">
           <span className="brand-mark" aria-hidden="true">N</span>
@@ -260,18 +272,18 @@ function MissingAuthConfiguration() {
         </div>
 
         <div className="auth-intro">
-          <p className="eyebrow">你的私人学习空间</p>
-          <h1 id="signin-title">继续你的 Flow</h1>
-          <p>选择 Google，或者让我们发一个邮箱验证码。不创建新密码。</p>
+          <p className="eyebrow">{t("Your private learning workspace", "你的私人学习空间")}</p>
+          <h1 id="signin-title">{t("Continue your Flow", "继续你的 Flow")}</h1>
+          <p>{t("Choose Google or receive a one-time email code. No new password.", "选择 Google，或者让我们发一个邮箱验证码。不创建新密码。")}</p>
         </div>
 
         <button className="google-signin" type="button" disabled>
           <GoogleIcon />
-          使用 Google 继续
+          {t("Continue with Google", "使用 Google 继续")}
         </button>
-        <div className="auth-divider"><span>或使用邮箱验证码</span></div>
+        <div className="auth-divider"><span>{t("or use an email code", "或使用邮箱验证码")}</span></div>
         <div className="auth-form">
-          <label htmlFor="signin-email-preview">邮箱</label>
+          <label htmlFor="signin-email-preview">{t("Email", "邮箱")}</label>
           <input
             id="signin-email-preview"
             type="email"
@@ -279,19 +291,19 @@ function MissingAuthConfiguration() {
             disabled
           />
           <button className="email-code-button" type="button" disabled>
-            发送验证码
+            {t("Send verification code", "发送验证码")}
           </button>
         </div>
 
         <div className="auth-setup-notice">
-          <strong>还差一次 Supabase 配置</strong>
-          <span>添加下面两个公开参数后即可真实登录：</span>
+          <strong>{t("Supabase setup is still required", "还差一次 Supabase 配置")}</strong>
+          <span>{t("Add these two public values to enable real sign-in:", "添加下面两个公开参数后即可真实登录：")}</span>
           <code>NEXT_PUBLIC_SUPABASE_URL</code>
           <code>NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code>
         </div>
 
         <a className="email-code-button auth-guest-link" href="/demo">
-          无需登录，进入访客学习
+          {t("Enter the guest workspace without signing in", "无需登录，进入访客学习")}
         </a>
       </section>
     </main>
@@ -299,11 +311,14 @@ function MissingAuthConfiguration() {
 }
 
 function AuthLoading() {
+  const { t } = useLocale();
+
   return (
     <main className="auth-page">
+      <LanguageSwitch className="auth-language-switch" />
       <section className="auth-card auth-loading-card" aria-live="polite">
         <span className="auth-loader" aria-hidden="true" />
-        <p>正在打开你的 NoteFlow…</p>
+        <p>{t("Opening your NoteFlow…", "正在打开你的 NoteFlow…")}</p>
       </section>
     </main>
   );

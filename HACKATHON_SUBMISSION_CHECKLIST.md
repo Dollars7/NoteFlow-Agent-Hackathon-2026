@@ -6,7 +6,7 @@ This checklist separates completed repository work from actions that require the
 
 - [x] Preserve the pre-existing NoteFlow history and baseline hash
 - [x] Create a separate hackathon branch
-- [x] Add a public English Collaborative Partner experience
+- [x] Add a default-English Collaborative Partner experience with an in-place Chinese translation
 - [x] Implement Gemini 3.5 Flash with Google ADK
 - [x] Implement Firestore model mutations and immutable versions
 - [x] Implement Pub/Sub background jobs and a Cloud Run worker entry point
@@ -27,7 +27,7 @@ This checklist separates completed repository work from actions that require the
 - [x] Configure the deployed frontend with the Cloud Run agent URL and server-only credential
 - [x] Capture Cloud Run, Vertex AI, Firestore, and Pub/Sub proof identifiers for the demo video
 - [x] Run an end-to-end test using judge-safe sample data
-- [ ] Publish the repository or grant the required judge accounts access
+- [ ] Push the contest branch to `Dollars7/NoteFlow`, then publish the repository or grant the required judge accounts access
 - [ ] Record an English demo of no more than four minutes
 - [ ] Complete the Devpost description, technology list, data-source disclosure, findings, and testing instructions
 - [ ] Submit before 2026-08-31 5:00 PM Pacific Time

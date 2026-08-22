@@ -20,6 +20,7 @@ import {
   type SkillState,
 } from "../lib/flow-engine";
 import { GoalPlanner } from "./goal-planner";
+import { LanguageSwitch, useLocale, type Locale } from "./locale";
 import { NoteLibrary } from "./note-library";
 
 type Phase =
@@ -92,10 +93,10 @@ function MarkdownNote({ source }: { source: string }) {
   );
 }
 
-function skillSignal(skill: SkillState) {
+function skillSignal(skill: SkillState, locale: Locale) {
   return skill.id === "expression"
-    ? { label: "表达可提取性", value: skill.expression }
-    : { label: "记忆保持度", value: skill.retention };
+    ? { label: locale === "zh" ? "表达可提取性" : "Expression recall", value: skill.expression }
+    : { label: locale === "zh" ? "记忆保持度" : "Memory retention", value: skill.retention };
 }
 
 function SkillStateView({
@@ -107,6 +108,8 @@ function SkillStateView({
   title: string;
   eyebrow: string;
 }) {
+  const { locale, t } = useLocale();
+
   return (
     <section className="skill-state-card">
       <div className="state-heading">
@@ -114,11 +117,11 @@ function SkillStateView({
           <p className="eyebrow">{eyebrow}</p>
           <h2>{title}</h2>
         </div>
-        <span className="local-pill"><i /> 保存到私人空间</span>
+        <span className="local-pill"><i /> {t("Saved to your private space", "保存到私人空间")}</span>
       </div>
       <div className="state-grid">
         {skills.map((skill) => {
-          const signal = skillSignal(skill);
+          const signal = skillSignal(skill, locale);
           const percent = Math.round(signal.value * 100);
           return (
             <div className="state-item" key={skill.id}>
@@ -147,8 +150,39 @@ function SkillStateView({
   );
 }
 
-function buildPrerequisiteCard(source: NoteCard): NoteCard {
+function buildPrerequisiteCard(source: NoteCard, locale: Locale): NoteCard {
   const concept = source.hintKeywords[0] ?? source.title;
+
+  if (locale === "en") {
+    return {
+      id: `prereq-${source.id}`,
+      skillId: source.skillId,
+      tags: [...new Set([...(source.tags ?? []), "prerequisite"])],
+      mode: "recall",
+      title: `Prerequisite: ${concept}`,
+      prompt: `Before answering the original question, explain “${concept}” in your own words and why it is a prerequisite for ${source.title}.`,
+      hintKeywords: source.hintKeywords,
+      scaffold: [
+        `Give a minimal definition of “${concept}”.`,
+        "Explain the specific problem it solves.",
+        `Connect it back to ${source.title}.`,
+      ],
+      noteMarkdown: `## Minimal prerequisite
+
+**${concept}** is the missing connection needed to understand the original card.
+
+## Retrieval target
+
+- Define it in your own words.
+- Explain the problem it solves.
+- Connect it back to **${source.title}**.
+
+This prerequisite card came from a “no direction” signal. It is not a debt.`,
+      goalRelevance: source.goalRelevance,
+      dependencyValue: 1,
+      uncertainty: 0.86,
+    };
+  }
 
   return {
     id: `prereq-${source.id}`,
@@ -186,6 +220,7 @@ export default function NoteFlowApp({
   onSignOut,
   isGuest = false,
 }: NoteFlowAppProps) {
+  const { locale, t } = useLocale();
   const storageKey = `noteflow-memory-v4:${user.id}`;
   const legacyAccountStorageKey = `noteflow-memory-v3:${user.email.trim().toLowerCase()}`;
   const [phase, setPhase] = useState<Phase>("pre");
@@ -399,7 +434,10 @@ export default function NoteFlowApp({
     setRecordingError("");
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
       setRecordingState("error");
-      setRecordingError("当前浏览器不支持录音，但你仍然可以完成口述检索。");
+      setRecordingError(t(
+        "This browser does not support recording, but you can still complete the spoken retrieval.",
+        "当前浏览器不支持录音，但你仍然可以完成口述检索。",
+      ));
       return;
     }
 
@@ -422,7 +460,10 @@ export default function NoteFlowApp({
       setRecordingState("recording");
     } catch {
       setRecordingState("error");
-      setRecordingError("没有取得麦克风权限。你可以直接口述，系统仍会记录检索结果。");
+      setRecordingError(t(
+        "Microphone access was not granted. You can answer aloud and the system will still record the retrieval result.",
+        "没有取得麦克风权限。你可以直接口述，系统仍会记录检索结果。",
+      ));
     }
   };
 
@@ -445,27 +486,34 @@ export default function NoteFlowApp({
   const generateGapCard = () => {
     if (!currentCard || !gapSentence.trim()) return;
     const cardId = `gap-${Date.now()}`;
-    const noteMarkdown = `## 刚才的卡点
+    const noteMarkdown = locale === "zh" ? `## 刚才的卡点
 
 ${gapSentence.trim()}
 
 ## 下一次检索
 
-先不用追求完整答案。用自己的话说明这句话缺少的概念、连接或前置知识，再回到原卡片核对。`;
+先不用追求完整答案。用自己的话说明这句话缺少的概念、连接或前置知识，再回到原卡片核对。` : `## Where you got stuck
+
+${gapSentence.trim()}
+
+## Next retrieval
+
+Do not aim for a complete answer yet. Explain the missing concept, connection, or prerequisite in your own words, then check it against the original card.`;
 
     const gapCard: NoteCard = {
       id: cardId,
       skillId: currentCard.skillId,
       tags: [...new Set([...(currentCard.tags ?? []), "gap-card"])],
       mode: "recall",
-      title: `补漏：${currentCard.title}`,
-      prompt: `不看原笔记，解释你上次卡住的这一句：${gapSentence.trim()}`,
-      hintKeywords: ["缺失概念", "连接关系", "自己的例子"],
-      scaffold: [
-        "先指出你不确定的名词或关系。",
-        "补上它依赖的最小前置知识。",
-        "用一个自己的例子重新说一遍。",
-      ],
+      title: t(`Gap repair: ${currentCard.title}`, `补漏：${currentCard.title}`),
+      prompt: t(
+        `Without looking at the original note, explain the sentence that stopped you last time: ${gapSentence.trim()}`,
+        `不看原笔记，解释你上次卡住的这一句：${gapSentence.trim()}`,
+      ),
+      hintKeywords: locale === "zh" ? ["缺失概念", "连接关系", "自己的例子"] : ["missing concept", "connection", "your own example"],
+      scaffold: locale === "zh"
+        ? ["先指出你不确定的名词或关系。", "补上它依赖的最小前置知识。", "用一个自己的例子重新说一遍。"]
+        : ["Name the term or relationship you are unsure about.", "Add the smallest prerequisite it depends on.", "Restate it with an example of your own."],
       noteMarkdown,
       goalRelevance: currentCard.goalRelevance,
       dependencyValue: Math.min(1, currentCard.dependencyValue + 0.05),
@@ -484,11 +532,15 @@ ${gapSentence.trim()}
     }));
     setGeneratedNotes((notes) => ({
       ...notes,
-      [currentCard.id]: `## 已生成补漏卡
+      [currentCard.id]: locale === "zh" ? `## 已生成补漏卡
 
 **卡点：** ${gapSentence.trim()}
 
-这不是一项欠债。它已作为一张独立卡片回到调度池，系统会在合适的时候重新检索。`,
+这不是一项欠债。它已作为一张独立卡片回到调度池，系统会在合适的时候重新检索。` : `## Gap-repair card created
+
+**Sticking point:** ${gapSentence.trim()}
+
+This is not a debt. It has returned to the scheduling pool as an independent card and will be retrieved again at the right time.`,
     }));
   };
 
@@ -513,7 +565,7 @@ ${gapSentence.trim()}
     let prerequisiteId = currentCard.prerequisiteCardId;
 
     if (feedback === "prerequisite" && !prerequisiteId) {
-      const fallbackPrerequisite = buildPrerequisiteCard(currentCard);
+      const fallbackPrerequisite = buildPrerequisiteCard(currentCard, locale);
       prerequisiteId = fallbackPrerequisite.id;
 
       if (!allCards.some((card) => card.id === fallbackPrerequisite.id)) {
@@ -572,10 +624,12 @@ ${gapSentence.trim()}
       skillId,
       tags: [skillId],
       mode: "recall",
-      title: "未命名笔记",
-      prompt: "不看笔记，用自己的话解释这条知识的核心概念。",
-      hintKeywords: ["核心概念", "为什么", "例子"],
-      scaffold: ["先给出定义。", "再说明它解决什么问题。", "最后给一个自己的例子。"],
+      title: t("Untitled note", "未命名笔记"),
+      prompt: t("Without looking at the note, explain its core concept in your own words.", "不看笔记，用自己的话解释这条知识的核心概念。"),
+      hintKeywords: locale === "zh" ? ["核心概念", "为什么", "例子"] : ["core concept", "why", "example"],
+      scaffold: locale === "zh"
+        ? ["先给出定义。", "再说明它解决什么问题。", "最后给一个自己的例子。"]
+        : ["Start with a definition.", "Explain the problem it solves.", "Finish with an example of your own."],
       noteMarkdown: "",
       goalRelevance: { "amazon-sde2": 0.65, "google-l4": 0.65 },
       dependencyValue: 0.5,
@@ -691,20 +745,20 @@ ${gapSentence.trim()}
             <span>NoteFlow</span>
           </button>
           {(phase === "pre" || phase === "post") && (
-            <nav className="workspace-nav" aria-label="工作区">
+            <nav className="workspace-nav" aria-label={t("Workspace", "工作区")}>
               <button
                 type="button"
                 className={workspaceView === "notes" ? "selected" : ""}
                 onClick={() => setWorkspaceView("notes")}
               >
-                笔记库
+                {t("Notes", "笔记库")}
               </button>
               <button
                 type="button"
                 className={workspaceView === "learn" ? "selected" : ""}
                 onClick={openLearning}
               >
-                学习
+                {t("Learn", "学习")}
               </button>
             </nav>
           )}
@@ -712,16 +766,18 @@ ${gapSentence.trim()}
 
         {phase !== "pre" && phase !== "post" ? (
           <div className="active-header">
-            <span>检索中</span>
-            <button className="quiet-button" type="button" onClick={finishSession}>结束本次学习</button>
+            <LanguageSwitch />
+            <span>{t("Retrieval in progress", "检索中")}</span>
+            <button className="quiet-button" type="button" onClick={finishSession}>{t("End this session", "结束本次学习")}</button>
           </div>
         ) : (
           <div className="header-tools">
+            <LanguageSwitch />
             <div className="data-status">
               <i />
-              <span>{isGuest ? "访客演示 · 保存在当前浏览器" : "个人空间 · 云端自动保存"}</span>
+              <span>{isGuest ? t("Guest demo · saved in this browser", "访客演示 · 保存在当前浏览器") : t("Private workspace · saved to the cloud", "个人空间 · 云端自动保存")}</span>
               {phase === "post" && workspaceView === "learn" && (
-                <button className="quiet-button" type="button" onClick={resetMemory}>重置学习数据</button>
+                <button className="quiet-button" type="button" onClick={resetMemory}>{t("Reset learning data", "重置学习数据")}</button>
               )}
             </div>
             <div className="account-pill">
@@ -732,21 +788,21 @@ ${gapSentence.trim()}
                 <strong>{user.displayName}</strong>
                 <small>
                   {isGuest
-                    ? "无需登录"
+                    ? t("No sign-in required", "无需登录")
                     : user.authProvider === "google"
                       ? `Google · ${user.email}`
                       : user.email}
                 </small>
               </span>
               {isGuest ? (
-                <a className="account-signout" href="/hackathon">参赛页</a>
+                <a className="account-signout" href="/hackathon">{t("Entry page", "参赛页")}</a>
               ) : (
                 <button
                   className="account-signout"
                   type="button"
                   onClick={() => void onSignOut()}
                 >
-                  退出
+                  {t("Sign out", "退出")}
                 </button>
               )}
             </div>
@@ -773,19 +829,21 @@ ${gapSentence.trim()}
       {phase === "pre" && workspaceView === "learn" && (
         <section className="pre-session">
           <div className="pre-copy">
-            <p className="eyebrow">System handles the decision. You handle retrieval.</p>
-            <h1>不用计划。<br />准备好以后，只做眼前这一张。</h1>
+            <p className="eyebrow">{t("System handles the decision. You handle retrieval.", "系统负责决策，你负责检索。")}</p>
+            <h1>{t("Do not plan.", "不用计划。")}<br />{t("When you are ready, do only the card in front of you.", "准备好以后，只做眼前这一张。")}</h1>
             <p>
-              NoteFlow 不展示待办、欠账或完成率。没做到的卡会自然回到调度池，
-              和所有知识一样重新竞争下一次检索机会。
+              {t(
+                "NoteFlow does not show to-do lists, debts, or completion rates. Cards you miss return naturally to the scheduling pool and compete for the next retrieval opportunity like every other piece of knowledge.",
+                "NoteFlow 不展示待办、欠账或完成率。没做到的卡会自然回到调度池，和所有知识一样重新竞争下一次检索机会。",
+              )}
             </p>
             <GoalPlanner profile={goalProfile} onChange={setGoalProfile} />
             <button className="primary-button start-session-button" type="button" onClick={beginSession}>
-              开始本次学习
+              {t("Start this session", "开始本次学习")}
               <span aria-hidden="true">→</span>
             </button>
           </div>
-          <SkillStateView skills={skills} eyebrow="Session 前" title="当前能力状态" />
+          <SkillStateView skills={skills} eyebrow={t("Before session", "Session 前")} title={t("Current skill state", "当前能力状态")} />
         </section>
       )}
 
@@ -793,15 +851,18 @@ ${gapSentence.trim()}
         <section className="post-session">
           <div className="post-copy">
             <span className="post-mark" aria-hidden="true">✓</span>
-            <p className="eyebrow">Session 已收束</p>
-            <h1>没有“没做完”。</h1>
-            <p>刚才没有出现的卡已经回到记忆调度池。它们不是 backlog，也不会在明天变成欠债。</p>
+            <p className="eyebrow">{t("Session complete", "Session 已收束")}</p>
+            <h1>{t("There is no unfinished work.", "没有“没做完”。")}</h1>
+            <p>{t(
+              "Cards that did not appear have returned to the memory scheduling pool. They are not a backlog and will not become a debt tomorrow.",
+              "刚才没有出现的卡已经回到记忆调度池。它们不是 backlog，也不会在明天变成欠债。",
+            )}</p>
             <button className="primary-button" type="button" onClick={() => setPhase("pre")}>
-              回到开始前
+              {t("Return to the start", "回到开始前")}
               <span aria-hidden="true">↗</span>
             </button>
           </div>
-          <SkillStateView skills={skills} eyebrow="Session 后" title="更新后的能力状态" />
+          <SkillStateView skills={skills} eyebrow={t("After session", "Session 后")} title={t("Updated skill state", "更新后的能力状态")} />
         </section>
       )}
 
@@ -811,35 +872,35 @@ ${gapSentence.trim()}
             <div className="card-chrome">
               <div>
                 <span className="side-dot" />
-                <span>{phase === "note" ? "Note back" : "Retrieval front"}</span>
+                <span>{phase === "note" ? t("Note back", "笔记背面") : t("Retrieval front", "检索正面")}</span>
               </div>
               <span>{currentCard.mode}</span>
             </div>
 
             {phase === "attempt" && (
               <div className="attempt-view">
-                <p className="eyebrow">先生成，再核对</p>
+                <p className="eyebrow">{t("Generate first, then verify", "先生成，再核对")}</p>
                 <h1>{currentCard.title}</h1>
                 <div className="prompt-block"><p>{currentCard.prompt}</p></div>
 
                 {currentCard.mode === "speak" && (
                   <div className="recording-box">
                     <div>
-                      <strong>口述录音</strong>
-                      <span>录音只保留在当前检索中</span>
+                      <strong>{t("Spoken recording", "口述录音")}</strong>
+                      <span>{t("The recording stays only in this retrieval", "录音只保留在当前检索中")}</span>
                     </div>
                     {recordingState === "idle" && (
                       <button type="button" onClick={startRecording}>
-                        <i className="record-dot" /> 开始录音
+                        <i className="record-dot" /> {t("Start recording", "开始录音")}
                       </button>
                     )}
                     {recordingState === "recording" && (
                       <button className="recording" type="button" onClick={stopRecording}>
-                        <i className="record-dot" /> 停止录音
+                        <i className="record-dot" /> {t("Stop recording", "停止录音")}
                       </button>
                     )}
                     {recordingState === "ready" && audioUrl && (
-                      <audio controls src={audioUrl} aria-label="本次口述录音" />
+                      <audio controls src={audioUrl} aria-label={t("Recording for this retrieval", "本次口述录音")} />
                     )}
                     {recordingState === "error" && <p className="recording-error">{recordingError}</p>}
                   </div>
@@ -847,32 +908,32 @@ ${gapSentence.trim()}
 
                 <div className="attempt-actions">
                   <button className="primary-button" type="button" onClick={() => commitAttempt("fluent")}>
-                    说顺了
+                    {t("I explained it clearly", "说顺了")}
                     <span aria-hidden="true">→</span>
                   </button>
-                  <button className="secondary-button" type="button" onClick={() => commitAttempt("stuck")}>卡住了</button>
+                  <button className="secondary-button" type="button" onClick={() => commitAttempt("stuck")}>{t("I got stuck", "卡住了")}</button>
                 </div>
                 <button className="skip-button" type="button" onClick={skipCurrentCard}>
-                  Skip · 放到本次队尾
+                  {t("Skip · move to the end of this session", "Skip · 放到本次队尾")}
                 </button>
               </div>
             )}
 
             {phase === "hint-keywords" && (
               <div className="hint-view">
-                <p className="eyebrow">先给一点结构，不给答案</p>
-                <h1>用这几个词，再试一次。</h1>
+                <p className="eyebrow">{t("A little structure, without the answer", "先给一点结构，不给答案")}</p>
+                <h1>{t("Try again with these words.", "用这几个词，再试一次。")}</h1>
                 <div className="keyword-cloud">
                   {currentCard.hintKeywords.map((keyword) => <span key={keyword}>{keyword}</span>)}
                 </div>
-                <p className="hint-prompt">把答案重新说一遍。能把这些词连起来吗？</p>
+                <p className="hint-prompt">{t("Say the answer again. Can you connect these words?", "把答案重新说一遍。能把这些词连起来吗？")}</p>
                 <div className="hint-actions">
                   <button className="primary-button" type="button" onClick={() => revealNote(1)}>
-                    想起来了，核对笔记
+                    {t("I remember now · check the note", "想起来了，核对笔记")}
                     <span aria-hidden="true">→</span>
                   </button>
                   <button className="secondary-button" type="button" onClick={() => setPhase("hint-scaffold")}>
-                    再给一点提示
+                    {t("Give me another hint", "再给一点提示")}
                   </button>
                 </div>
               </div>
@@ -880,8 +941,8 @@ ${gapSentence.trim()}
 
             {phase === "hint-scaffold" && (
               <div className="hint-view scaffold-view">
-                <p className="eyebrow">再多一点骨架，仍然不给答案</p>
-                <h1>沿着这个顺序，再说一次。</h1>
+                <p className="eyebrow">{t("More structure, still without the answer", "再多一点骨架，仍然不给答案")}</p>
+                <h1>{t("Follow this order and try again.", "沿着这个顺序，再说一次。")}</h1>
                 <div className="scaffold-list">
                   {currentCard.scaffold.map((line) => (
                     <div key={line}>
@@ -892,11 +953,11 @@ ${gapSentence.trim()}
                 </div>
                 <div className="hint-actions">
                   <button className="primary-button" type="button" onClick={() => revealNote(2)}>
-                    想起来了，核对笔记
+                    {t("I remember now · check the note", "想起来了，核对笔记")}
                     <span aria-hidden="true">→</span>
                   </button>
                   <button className="secondary-button" type="button" onClick={() => revealNote(2)}>
-                    还是不行，给我答案
+                    {t("Still stuck · show the answer", "还是不行，给我答案")}
                   </button>
                 </div>
               </div>
@@ -906,25 +967,28 @@ ${gapSentence.trim()}
               <div className="note-view">
                 <div className="note-heading">
                   <div>
-                    <p className="eyebrow">同一张卡 · Markdown 背面</p>
+                    <p className="eyebrow">{t("Same card · Markdown back", "同一张卡 · Markdown 背面")}</p>
                     <h1>{currentCard.title}</h1>
                   </div>
-                  <span>自由阅读 · 不计时</span>
+                  <span>{t("Read freely · no timer", "自由阅读 · 不计时")}</span>
                 </div>
 
                 {noteSource ? (
                   <MarkdownNote source={noteSource} />
                 ) : (
                   <div className="empty-note">
-                    <p className="eyebrow">这张卡的背面还是空的</p>
-                    <h2>刚才卡在哪一句？</h2>
-                    <p>写下最具体的断点。NoteFlow 会把它变成一张更小的补漏卡，而不是一项欠债。</p>
+                    <p className="eyebrow">{t("This card still has an empty back", "这张卡的背面还是空的")}</p>
+                    <h2>{t("Which sentence stopped you?", "刚才卡在哪一句？")}</h2>
+                    <p>{t(
+                      "Write the most specific break point. NoteFlow will turn it into a smaller gap-repair card, not a debt.",
+                      "写下最具体的断点。NoteFlow 会把它变成一张更小的补漏卡，而不是一项欠债。",
+                    )}</p>
                     <label>
-                      <span className="sr-only">刚才卡住的句子</span>
+                      <span className="sr-only">{t("The sentence that stopped you", "刚才卡住的句子")}</span>
                       <textarea
                         value={gapSentence}
                         onChange={(event) => setGapSentence(event.target.value)}
-                        placeholder="例如：我知道要用 Strategy，但说不清 Dispatcher 应该依赖谁。"
+                        placeholder={t("e.g. I know I need Strategy, but cannot explain what the Dispatcher should depend on.", "例如：我知道要用 Strategy，但说不清 Dispatcher 应该依赖谁。")}
                       />
                     </label>
                     <button
@@ -933,7 +997,7 @@ ${gapSentence.trim()}
                       onClick={generateGapCard}
                       disabled={!gapSentence.trim()}
                     >
-                      生成补漏卡
+                      {t("Create gap-repair card", "生成补漏卡")}
                       <span aria-hidden="true">＋</span>
                     </button>
                   </div>
@@ -942,7 +1006,7 @@ ${gapSentence.trim()}
                 {(noteSource || generatedNotes[currentCard.id]) && (
                   <div className="note-actions">
                     <button className="primary-button" type="button" onClick={() => setPhase("feedback")}>
-                      读完了
+                      {t("Finished reading", "读完了")}
                       <span aria-hidden="true">→</span>
                     </button>
                   </div>
@@ -952,30 +1016,30 @@ ${gapSentence.trim()}
 
             {phase === "feedback" && (
               <div className="feedback-view">
-                <p className="eyebrow">这不是打分，只是给调度器一个信号</p>
-                <h1>刚才是哪一种情况？</h1>
+                <p className="eyebrow">{t("This is not a score—only a signal to the scheduler", "这不是打分，只是给调度器一个信号")}</p>
+                <h1>{t("What just happened?", "刚才是哪一种情况？")}</h1>
                 <div className="feedback-options">
                   <button type="button" onClick={() => submitFeedback("guided")}>
                     <span className="feedback-mark">↻</span>
                     <span>
-                      <strong>想不起来，但知道在找什么</strong>
-                      <small>正常重排，之后自然再来</small>
+                      <strong>{t("I could not recall it, but knew what I was looking for", "想不起来，但知道在找什么")}</strong>
+                      <small>{t("Reschedule normally and let it return later", "正常重排，之后自然再来")}</small>
                     </span>
                     <b aria-hidden="true">→</b>
                   </button>
                   <button type="button" onClick={() => submitFeedback("prerequisite")}>
                     <span className="feedback-mark">↙</span>
                     <span>
-                      <strong>完全没方向</strong>
-                      <small>先退到前置知识</small>
+                      <strong>{t("I had no direction", "完全没方向")}</strong>
+                      <small>{t("Step back to a prerequisite first", "先退到前置知识")}</small>
                     </span>
                     <b aria-hidden="true">→</b>
                   </button>
                   <button type="button" onClick={() => submitFeedback("overlearned")}>
                     <span className="feedback-mark">↗</span>
                     <span>
-                      <strong>太熟了</strong>
-                      <small>拉长间隔，以后少出现</small>
+                      <strong>{t("This was too familiar", "太熟了")}</strong>
+                      <small>{t("Extend the interval so it appears less often", "拉长间隔，以后少出现")}</small>
                     </span>
                     <b aria-hidden="true">→</b>
                   </button>
@@ -986,7 +1050,7 @@ ${gapSentence.trim()}
             {phase === "delta" && memoryDelta && (
               <div className="delta-view">
                 <span className="delta-spark" aria-hidden="true">✦</span>
-                <p className="eyebrow">检索结果已经写回记忆模型</p>
+                <p className="eyebrow">{t("The retrieval result is now in the memory model", "检索结果已经写回记忆模型")}</p>
                 <h1>{memoryDelta.skillName}</h1>
                 <div className="delta-number">
                   <span>{Math.round(memoryDelta.before * 100)}%</span>
@@ -994,17 +1058,23 @@ ${gapSentence.trim()}
                   <strong>{Math.round(memoryDelta.after * 100)}%</strong>
                 </div>
                 <p className="delta-label">
-                  {memoryDelta.metric === "expression" ? "表达可提取性" : "记忆保持度"}
+                  {memoryDelta.metric === "expression" ? t("Expression recall", "表达可提取性") : t("Memory retention", "记忆保持度")}
                 </p>
-                <p className="delta-message">{memoryDelta.message}</p>
+                <p className="delta-message">{locale === "zh"
+                  ? memoryDelta.message === "Interval expanded. This card will appear less often."
+                    ? "间隔已经拉长，这张卡以后会更少出现。"
+                    : memoryDelta.message === "A prerequisite will be retrieved before this card returns."
+                      ? "在这张卡再次出现之前，系统会先检索一张前置卡。"
+                      : "这张卡已回到正常的记忆调度中。"
+                  : memoryDelta.message}</p>
                 <div className="delta-actions">
                   <button className="primary-button" type="button" onClick={advanceToNextCard}>
-                    下一张
+                    {t("Next card", "下一张")}
                     <span aria-hidden="true">→</span>
                   </button>
-                  <button className="secondary-button" type="button" onClick={finishSession}>到这里</button>
+                  <button className="secondary-button" type="button" onClick={finishSession}>{t("Stop here", "到这里")}</button>
                 </div>
-                <p className="continuation-note">是否继续不会进入调度权重。</p>
+                <p className="continuation-note">{t("Whether you continue does not affect scheduling weight.", "是否继续不会进入调度权重。")}</p>
               </div>
             )}
           </article>

@@ -107,9 +107,11 @@ test("server-renders the private-account setup gate without leaking product data
 
   const html = await response.text();
   assert.match(html, /<title>NoteFlow/);
-  assert.match(html, /继续你的 Flow/);
-  assert.match(html, /使用 Google 继续/);
-  assert.match(html, /发送验证码/);
+  assert.match(html, /Continue your Flow/);
+  assert.match(html, /Continue with Google/);
+  assert.match(html, /Send verification code/);
+  assert.match(html, />EN</);
+  assert.match(html, />中文</);
   assert.match(html, /NEXT_PUBLIC_SUPABASE_URL/);
   assert.match(html, /NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY/);
   assert.doesNotMatch(html, /Min-heap invariant|Overlap invariant/);
@@ -241,4 +243,29 @@ test("implements dual auth, unified notes, scoped scheduling, and private persis
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   await assert.rejects(access(new URL("../app/chatgpt-auth.ts", import.meta.url)));
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
+});
+
+test("defaults to English and keeps Chinese as an in-place translation", async () => {
+  const [layout, localeSource, hackathonHeader, hackathonDemo, guestWorkspace, proxy] = await Promise.all([
+    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/locale.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/hackathon/hackathon-header.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/hackathon/hackathon-demo.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/demo/guest-workspace.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/hackathon-agent/route.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(layout, /<html lang="en">/);
+  assert.match(layout, /LocaleProvider/);
+  assert.match(localeSource, /useState<Locale>\("en"\)/);
+  assert.match(localeSource, /noteflow-locale/);
+  assert.match(localeSource, /document\.documentElement\.lang/);
+  assert.match(hackathonHeader, /LanguageSwitch/);
+  assert.match(hackathonHeader, /Try the learning workspace/);
+  assert.match(hackathonHeader, /体验学习空间/);
+  assert.match(hackathonDemo, /Your notes should notice where you get stuck/);
+  assert.match(hackathonDemo, /你的笔记应该知道你卡在哪里/);
+  assert.match(guestWorkspace, /Guest learner/);
+  assert.match(proxy, /Response language/);
+  assert.match(proxy, /Simplified Chinese/);
 });

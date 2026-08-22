@@ -111,12 +111,14 @@ export function parseNoteImport(
   skills: SkillState[],
   fallbackSkillId: string,
   idPrefix = `import-${Date.now()}`,
+  locale: "en" | "zh" = "en",
 ): NoteImportResult {
+  const t = (english: string, chinese: string) => locale === "zh" ? chinese : english;
   const text = source.replace(/^\uFEFF/, "");
   const firstLine = text.split(/\r?\n/, 1)[0] ?? "";
   const delimiter = firstLine.includes("\t") ? "\t" : ",";
   const rows = parseRows(text, delimiter);
-  if (rows.length === 0) return { cards: [], warnings: ["文件中没有可导入的内容。"], format: "noteflow-csv" };
+  if (rows.length === 0) return { cards: [], warnings: [t("The file has no importable content.", "文件中没有可导入的内容。")], format: "noteflow-csv" };
 
   const firstHeaders = rows[0].map(normalizedHeader);
   const knownHeaders: string[] = Object.values(headerAliases).flat();
@@ -151,7 +153,10 @@ export function parseNoteImport(
 
     if (!prompt && !noteMarkdown) return;
     if (!prompt) {
-      warnings.push(`第 ${rowIndex + (hasHeader ? 2 : 1)} 行缺少 Front/prompt，已跳过。`);
+      warnings.push(t(
+        `Row ${rowIndex + (hasHeader ? 2 : 1)} has no Front/prompt and was skipped.`,
+        `第 ${rowIndex + (hasHeader ? 2 : 1)} 行缺少 Front/prompt，已跳过。`,
+      ));
       return;
     }
 
@@ -164,13 +169,16 @@ export function parseNoteImport(
           normalizedHeader(rawSkill) === normalizedHeader(skill.id) ||
           normalizedHeader(rawSkill) === normalizedHeader(skill.name),
       );
-      if (!recognized) warnings.push(`“${rawSkill}”未匹配知识领域，已归入默认领域。`);
+      if (!recognized) warnings.push(t(
+        `“${rawSkill}” did not match a knowledge domain and was assigned to the default domain.`,
+        `“${rawSkill}”未匹配知识领域，已归入默认领域。`,
+      ));
     }
 
     const title =
       get(indexes.title) ||
       prompt.replace(/\s+/g, " ").slice(0, 72) ||
-      `导入笔记 ${rowIndex + 1}`;
+      t(`Imported note ${rowIndex + 1}`, `导入笔记 ${rowIndex + 1}`);
     const hintKeywords = splitList(get(indexes.hintKeywords));
     const scaffold = get(indexes.scaffold)
       .split("|")
@@ -189,7 +197,9 @@ export function parseNoteImport(
       scaffold:
         scaffold.length > 0
           ? scaffold
-          : ["先说出核心定义。", "解释它解决的问题。", "给出一个自己的例子。"],
+          : locale === "zh"
+            ? ["先说出核心定义。", "解释它解决的问题。", "给出一个自己的例子。"]
+            : ["State the core definition first.", "Explain the problem it solves.", "Give one example of your own."],
       goalRelevance: { "amazon-sde2": 0.65, "google-l4": 0.65 },
       dependencyValue: 0.5,
       uncertainty: 0.8,

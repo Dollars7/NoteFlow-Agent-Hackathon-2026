@@ -11,6 +11,7 @@ type AgentRequest = {
   goal?: unknown;
   notes?: unknown;
   clarification?: unknown;
+  locale?: unknown;
 };
 
 function cleanText(value: unknown, maxLength: number): string {
@@ -38,9 +39,12 @@ function isRateLimited(key: string): boolean {
 }
 
 export async function POST(request: NextRequest) {
+  const requestedLocale = request.headers.get("x-noteflow-locale") === "zh" ? "zh" : "en";
+  const message = (english: string, chinese: string) => requestedLocale === "zh" ? chinese : english;
+
   if (isRateLimited(clientKey(request))) {
     return NextResponse.json(
-      { error: "Please wait a minute before running another live agent session." },
+      { error: message("Please wait a minute before running another live agent session.", "请等待一分钟后再运行新的 Agent 会话。") },
       { status: 429 },
     );
   }
@@ -48,21 +52,22 @@ export async function POST(request: NextRequest) {
   const agentUrl = process.env.NOTEFLOW_AGENT_URL?.replace(/\/$/, "") ?? "";
   const sharedSecret = process.env.NOTEFLOW_AGENT_SHARED_SECRET ?? "";
   if (!agentUrl || !sharedSecret) {
-    return NextResponse.json({ error: "The cloud agent is not configured." }, { status: 503 });
+    return NextResponse.json({ error: message("The cloud agent is not configured.", "云端 Agent 尚未配置。") }, { status: 503 });
   }
 
   let body: AgentRequest;
   try {
     body = (await request.json()) as AgentRequest;
   } catch {
-    return NextResponse.json({ error: "A JSON request body is required." }, { status: 400 });
+    return NextResponse.json({ error: message("A JSON request body is required.", "请求必须包含 JSON 数据。") }, { status: 400 });
   }
 
+  const locale = body.locale === "zh" ? "zh" : "en";
   const goal = cleanText(body.goal, 400);
   const notes = cleanText(body.notes, 12_000);
   const clarification = cleanText(body.clarification, 1_000);
   if (!goal || !notes) {
-    return NextResponse.json({ error: "A learning goal and source notes are required." }, { status: 400 });
+    return NextResponse.json({ error: locale === "zh" ? "请填写学习目标和来源笔记。" : "A learning goal and source notes are required." }, { status: 400 });
   }
 
   const userId = `judge-${crypto.randomUUID()}`;
@@ -84,11 +89,13 @@ export async function POST(request: NextRequest) {
 
     const prompt = [
       `Learner ID: ${userId}`,
+      `Response language: ${locale === "zh" ? "Simplified Chinese. Translate the four section headings as well." : "English."}`,
       `Learning goal: ${goal}`,
-      `Learner clarification: ${clarification || "No additional context provided."}`,
+      `Learner clarification: ${clarification || (locale === "zh" ? "未提供额外上下文。" : "No additional context provided.")}`,
       "Messy source notes:",
       notes,
       "Lead the learner. Diagnose the knowledge structure, mutate the learning model with your tools, and give exactly one next retrieval prompt.",
+      "Use the requested response language for every user-facing sentence while keeping tool arguments accurate.",
     ].join("\n\n");
 
     const runResponse = await fetch(`${agentUrl}/run`, {

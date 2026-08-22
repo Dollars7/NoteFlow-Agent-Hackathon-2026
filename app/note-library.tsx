@@ -7,6 +7,7 @@ import {
   type NoteImportResult,
 } from "../lib/import-notes";
 import type { NoteCard, SkillState } from "../lib/flow-engine";
+import { useLocale } from "./locale";
 
 type EditableCardFields =
   | "title"
@@ -43,13 +44,14 @@ function TagEditor({
   card: NoteCard;
   onChange: (tags: string[]) => void;
 }) {
+  const { t } = useLocale();
   const [value, setValue] = useState((card.tags ?? []).join(", "));
 
   const commit = () => onChange(parseTags(value));
 
   return (
     <label className="tag-editor-field">
-      <span>标签</span>
+      <span>{t("Tags", "标签")}</span>
       <input
         value={value}
         onChange={(event) => setValue(event.target.value)}
@@ -60,7 +62,7 @@ function TagEditor({
             event.currentTarget.blur();
           }
         }}
-        placeholder="例如：java, interview, heap"
+        placeholder={t("e.g. java, interview, heap", "例如：java, interview, heap")}
       />
     </label>
   );
@@ -79,6 +81,7 @@ export function NoteLibrary({
   onImport,
   onLearn,
 }: NoteLibraryProps) {
+  const { locale, t } = useLocale();
   const [query, setQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkTag, setBulkTag] = useState("");
@@ -134,7 +137,10 @@ export function NoteLibrary({
   const deleteSelected = () => {
     if (selectedIds.size === 0) return;
     const confirmed = window.confirm(
-      `确定删除选中的 ${selectedIds.size} 个知识对象吗？相关记忆记录也会一起删除。`,
+      t(
+        `Delete the ${selectedIds.size} selected knowledge objects? Related memory records will also be removed.`,
+        `确定删除选中的 ${selectedIds.size} 个知识对象吗？相关记忆记录也会一起删除。`,
+      ),
     );
     if (!confirmed) return;
     onDelete([...selectedIds]);
@@ -144,7 +150,7 @@ export function NoteLibrary({
   const handleImportFile = async (file: File | undefined) => {
     if (!file) return;
     const text = await file.text();
-    setImportPreview(parseNoteImport(text, skills, importFallbackSkill));
+    setImportPreview(parseNoteImport(text, skills, importFallbackSkill, `import-${Date.now()}`, locale));
   };
 
   const commitImport = () => {
@@ -170,23 +176,23 @@ export function NoteLibrary({
       <aside className="notes-sidebar">
         <div className="notes-sidebar-heading">
           <div>
-            <p className="eyebrow">Knowledge objects</p>
-            <h1>笔记库</h1>
+            <p className="eyebrow">{t("Knowledge objects", "知识对象")}</p>
+            <h1>{t("Note library", "笔记库")}</h1>
           </div>
           <div className="library-create-actions">
             <button type="button" className="import-button" onClick={() => setImportOpen(true)}>
-              导入
+              {t("Import", "导入")}
             </button>
-            <button type="button" className="new-note-button" onClick={onCreate}>＋ 新笔记</button>
+            <button type="button" className="new-note-button" onClick={onCreate}>＋ {t("New note", "新笔记")}</button>
           </div>
         </div>
 
         <label className="note-search">
-          <span className="sr-only">搜索笔记</span>
+          <span className="sr-only">{t("Search notes", "搜索笔记")}</span>
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="搜索标题、正文、领域或标签"
+            placeholder={t("Search titles, notes, domains, or tags", "搜索标题、正文、领域或标签")}
           />
         </label>
 
@@ -196,12 +202,12 @@ export function NoteLibrary({
               type="checkbox"
               checked={allFilteredSelected}
               onChange={toggleAllFiltered}
-              aria-label="选择当前搜索结果"
+              aria-label={t("Select current search results", "选择当前搜索结果")}
             />
-            <span>{selectedIds.size > 0 ? `已选择 ${selectedIds.size} 项` : `共 ${cards.length} 项`}</span>
+            <span>{selectedIds.size > 0 ? t(`${selectedIds.size} selected`, `已选择 ${selectedIds.size} 项`) : t(`${cards.length} total`, `共 ${cards.length} 项`)}</span>
           </label>
           {selectedIds.size > 0 && (
-            <button type="button" onClick={() => setSelectedIds(new Set())}>取消选择</button>
+            <button type="button" onClick={() => setSelectedIds(new Set())}>{t("Clear selection", "取消选择")}</button>
           )}
         </div>
 
@@ -212,7 +218,7 @@ export function NoteLibrary({
                 type="checkbox"
                 checked={selectedIds.has(card.id)}
                 onChange={() => toggleSelected(card.id)}
-                aria-label={`选择 ${card.title}`}
+                aria-label={t(`Select ${card.title}`, `选择 ${card.title}`)}
               />
               <button type="button" className="note-row-main" onClick={() => onSelect(card.id)}>
                 <span>
@@ -220,20 +226,20 @@ export function NoteLibrary({
                   {(card.tags ?? []).slice(0, 2).map((tag) => <i key={tag}>#{tag}</i>)}
                 </span>
                 <strong>{card.title}</strong>
-                <small>{card.noteMarkdown ? "有笔记背面" : "等待补充"}</small>
+                <small>{card.noteMarkdown ? t("Note back available", "有笔记背面") : t("Needs content", "等待补充")}</small>
               </button>
             </div>
           ))}
-          {filteredCards.length === 0 && <p className="empty-search">没有匹配的笔记。</p>}
+          {filteredCards.length === 0 && <p className="empty-search">{t("No matching notes.", "没有匹配的笔记。")}</p>}
         </div>
       </aside>
 
       <div className="library-main">
         {selectedIds.size > 0 && (
-          <section className="bulk-toolbar" aria-label="批量管理">
-            <strong>{selectedIds.size} 项</strong>
+          <section className="bulk-toolbar" aria-label={t("Bulk management", "批量管理")}>
+            <strong>{t(`${selectedIds.size} items`, `${selectedIds.size} 项`)}</strong>
             <label>
-              <span>知识领域</span>
+              <span>{t("Knowledge domain", "知识领域")}</span>
               <select
                 defaultValue=""
                 onChange={(event) => {
@@ -243,23 +249,23 @@ export function NoteLibrary({
                   }
                 }}
               >
-                <option value="" disabled>批量移动到…</option>
+                <option value="" disabled>{t("Move selected to…", "批量移动到…")}</option>
                 {skills.map((skill) => <option value={skill.id} key={skill.id}>{skill.name}</option>)}
               </select>
             </label>
             <label className="bulk-tag-field">
-              <span className="sr-only">批量添加标签</span>
+              <span className="sr-only">{t("Add a tag to selected notes", "批量添加标签")}</span>
               <input
                 value={bulkTag}
                 onChange={(event) => setBulkTag(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") addBulkTag();
                 }}
-                placeholder="添加标签"
+                placeholder={t("Add tag", "添加标签")}
               />
-              <button type="button" onClick={addBulkTag}>添加</button>
+              <button type="button" onClick={addBulkTag}>{t("Add", "添加")}</button>
             </label>
-            <button type="button" className="danger-button" onClick={deleteSelected}>删除</button>
+            <button type="button" className="danger-button" onClick={deleteSelected}>{t("Delete", "删除")}</button>
           </section>
         )}
 
@@ -267,18 +273,18 @@ export function NoteLibrary({
           <article className="note-editor">
             <header className="note-editor-heading">
               <div>
-                <span>{skillName} · 同一对象的笔记面</span>
-                <h2>领域与标签会跟着知识对象一起进入调度和导出。</h2>
+                <span>{skillName} · {t("note side of the same object", "同一对象的笔记面")}</span>
+                <h2>{t("Domains and tags travel with the knowledge object into scheduling and export.", "领域与标签会跟着知识对象一起进入调度和导出。")}</h2>
               </div>
               <button type="button" className="secondary-button" onClick={onLearn}>
-                去学习
+                {t("Start learning", "去学习")}
                 <span aria-hidden="true">→</span>
               </button>
             </header>
 
             <div className="card-metadata-fields">
               <label>
-                <span>知识领域</span>
+                <span>{t("Knowledge domain", "知识领域")}</span>
                 <select
                   value={selected.skillId}
                   onChange={(event) => onChange(selected.id, { skillId: event.target.value })}
@@ -287,17 +293,17 @@ export function NoteLibrary({
                 </select>
               </label>
               <label>
-                <span>检索模式</span>
+                <span>{t("Retrieval mode", "检索模式")}</span>
                 <select
                   value={selected.mode}
                   onChange={(event) =>
                     onChange(selected.id, { mode: event.target.value as NoteCard["mode"] })
                   }
                 >
-                  <option value="recall">Recall · 回忆</option>
-                  <option value="solve">Solve · 解题</option>
-                  <option value="design">Design · 设计</option>
-                  <option value="speak">Speak · 口述</option>
+                  <option value="recall">{t("Recall", "Recall · 回忆")}</option>
+                  <option value="solve">{t("Solve", "Solve · 解题")}</option>
+                  <option value="design">{t("Design", "Design · 设计")}</option>
+                  <option value="speak">{t("Speak", "Speak · 口述")}</option>
                 </select>
               </label>
               <TagEditor
@@ -308,7 +314,7 @@ export function NoteLibrary({
             </div>
 
             <label className="editor-field title-field">
-              <span>标题</span>
+              <span>{t("Title", "标题")}</span>
               <input
                 value={selected.title}
                 onChange={(event) => onChange(selected.id, { title: event.target.value })}
@@ -316,7 +322,7 @@ export function NoteLibrary({
             </label>
 
             <label className="editor-field">
-              <span>检索问题 · 卡片正面</span>
+              <span>{t("Retrieval prompt · card front", "检索问题 · 卡片正面")}</span>
               <textarea
                 className="prompt-editor"
                 value={selected.prompt}
@@ -325,24 +331,24 @@ export function NoteLibrary({
             </label>
 
             <label className="editor-field markdown-editor">
-              <span>Markdown 笔记 · 卡片背面</span>
+              <span>{t("Markdown note · card back", "Markdown 笔记 · 卡片背面")}</span>
               <textarea
                 value={selected.noteMarkdown}
                 onChange={(event) => onChange(selected.id, { noteMarkdown: event.target.value })}
-                placeholder={"## 核心概念\n\n写下解释、例子和容易卡住的地方……"}
+                placeholder={t("## Core concept\n\nWrite the explanation, examples, and likely sticking points…", "## 核心概念\n\n写下解释、例子和容易卡住的地方……")}
               />
             </label>
 
             <footer className="editor-footer">
-              <span><i /> 自动保存到 NoteFlow 数据库</span>
-              <span>一个对象 · 两个视图</span>
+              <span><i /> {t("Automatically saved to the NoteFlow database", "自动保存到 NoteFlow 数据库")}</span>
+              <span>{t("One object · two views", "一个对象 · 两个视图")}</span>
             </footer>
           </article>
         ) : (
           <section className="empty-library">
-            <p className="eyebrow">笔记库为空</p>
-            <h2>新建一条笔记，或从 CSV / Anki 导入。</h2>
-            <button type="button" className="primary-button" onClick={onCreate}>新建笔记</button>
+            <p className="eyebrow">{t("The note library is empty", "笔记库为空")}</p>
+            <h2>{t("Create a note or import from CSV / Anki.", "新建一条笔记，或从 CSV / Anki 导入。")}</h2>
+            <button type="button" className="primary-button" onClick={onCreate}>{t("Create note", "新建笔记")}</button>
           </section>
         )}
       </div>
@@ -352,26 +358,26 @@ export function NoteLibrary({
           <section className="import-dialog" role="dialog" aria-modal="true" aria-labelledby="import-title">
             <header>
               <div>
-                <p className="eyebrow">Bulk import</p>
-                <h2 id="import-title">导入 CSV 或 Anki 文件</h2>
+                <p className="eyebrow">{t("Bulk import", "批量导入")}</p>
+                <h2 id="import-title">{t("Import a CSV or Anki file", "导入 CSV 或 Anki 文件")}</h2>
               </div>
-              <button type="button" onClick={() => setImportOpen(false)} aria-label="关闭导入">×</button>
+              <button type="button" onClick={() => setImportOpen(false)} aria-label={t("Close import", "关闭导入")}>×</button>
             </header>
 
             <div className="import-format-grid">
               <div>
                 <strong>NoteFlow CSV</strong>
-                <p>支持 title、prompt、noteMarkdown、skill、tags、mode、hintKeywords、scaffold。</p>
-                <button type="button" onClick={downloadTemplate}>下载 CSV 模板</button>
+                <p>{t("Supports title, prompt, noteMarkdown, skill, tags, mode, hintKeywords, and scaffold.", "支持 title、prompt、noteMarkdown、skill、tags、mode、hintKeywords、scaffold。")}</p>
+                <button type="button" onClick={downloadTemplate}>{t("Download CSV template", "下载 CSV 模板")}</button>
               </div>
               <div>
-                <strong>Anki 格式</strong>
-                <p>支持 Front / Back / Tags 表头，也支持无表头的 Front ⇥ Back ⇥ Tags TSV。</p>
+                <strong>{t("Anki format", "Anki 格式")}</strong>
+                <p>{t("Supports Front / Back / Tags headers and headerless Front ⇥ Back ⇥ Tags TSV.", "支持 Front / Back / Tags 表头，也支持无表头的 Front ⇥ Back ⇥ Tags TSV。")}</p>
               </div>
             </div>
 
             <label className="import-fallback">
-              <span>无法识别 Deck / skill 时归入</span>
+              <span>{t("Use this domain when Deck / skill is unrecognized", "无法识别 Deck / skill 时归入")}</span>
               <select
                 value={importFallbackSkill}
                 onChange={(event) => setImportFallbackSkill(event.target.value)}
@@ -386,16 +392,16 @@ export function NoteLibrary({
                 accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values"
                 onChange={(event) => void handleImportFile(event.target.files?.[0])}
               />
-              <strong>选择 CSV / TSV 文件</strong>
-              <span>支持引号、单元格内换行和 UTF-8 BOM</span>
+              <strong>{t("Choose a CSV / TSV file", "选择 CSV / TSV 文件")}</strong>
+              <span>{t("Supports quotes, multiline cells, and UTF-8 BOM", "支持引号、单元格内换行和 UTF-8 BOM")}</span>
             </label>
 
             {importPreview && (
               <div className="import-preview">
                 <div className="import-preview-heading">
                   <div>
-                    <strong>{importPreview.cards.length} 条可导入</strong>
-                    <span>{importPreview.format === "anki" ? "检测为 Anki 格式" : "检测为 NoteFlow CSV"}</span>
+                    <strong>{t(`${importPreview.cards.length} ready to import`, `${importPreview.cards.length} 条可导入`)}</strong>
+                    <span>{importPreview.format === "anki" ? t("Detected Anki format", "检测为 Anki 格式") : t("Detected NoteFlow CSV", "检测为 NoteFlow CSV")}</span>
                   </div>
                   <button
                     type="button"
@@ -403,7 +409,7 @@ export function NoteLibrary({
                     disabled={importPreview.cards.length === 0}
                     onClick={commitImport}
                   >
-                    确认导入
+                    {t("Import", "确认导入")}
                   </button>
                 </div>
                 {importPreview.warnings.length > 0 && (
@@ -416,7 +422,7 @@ export function NoteLibrary({
                     <div key={card.id}>
                       <span>{skills.find((skill) => skill.id === card.skillId)?.name}</span>
                       <strong>{card.title}</strong>
-                      <small>{card.tags.map((tag) => `#${tag}`).join(" ") || "无标签"}</small>
+                      <small>{card.tags.map((tag) => `#${tag}`).join(" ") || t("No tags", "无标签")}</small>
                     </div>
                   ))}
                 </div>

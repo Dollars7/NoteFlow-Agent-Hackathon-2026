@@ -29,6 +29,15 @@ All timestamps use America/Phoenix (UTC-07:00 during the contest). This log reco
 - Verified a real Gemini 3.5 Flash run: immutable mutation `9aPqpj5FpIXwgGf89HVQ`, Pub/Sub message `21517632790505643`, worker HTTP 204, and Firestore background status `complete` at `2026-08-22T17:43:24.168Z`.
 - Live cloud and guest-learning commit: `70238f84ed4dff20357c6644644e2164016df132` (`feat: deploy live hackathon learning agent`).
 
+## 2026-08-22 — Unified English and Chinese experience
+
+- Replaced the separate-language presentation with one shared locale layer across the entry page, authentication gate, guest workspace, note library, goal planner, and retrieval flow.
+- Set English as the first-visit default and added an in-place English / Chinese switch that remembers the visitor's choice without changing routes or product behavior.
+- Added locale-aware live-agent requests so Gemini answers in the language selected by the judge, including localized error and transparent-preview states.
+- Rechecked the official submission rules: the application must support English, the hosted demo may use any publicly testable website URL, and a GitHub, GitLab, or Bitbucket repository URL is explicitly required. The rules do not require the frontend itself to be hosted by Google.
+- Confirmed that GitHub Pages is a technical hosting constraint rather than a contest restriction: the current authenticated APIs and server-side Agent proxy cannot run on static Pages without a separate public backend boundary.
+- Verified the production build, TypeScript compilation, and four automated tests. No new public deployment was made during this change.
+
 ## Logging rules
 
 - Add a dated entry for each material feature, deployment, or submission change.

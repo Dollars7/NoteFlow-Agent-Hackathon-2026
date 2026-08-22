@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { HackathonDemo } from "./hackathon-demo";
+import { HackathonHeader } from "./hackathon-header";
 import styles from "./hackathon.module.css";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -39,18 +40,7 @@ export default function HackathonPage() {
   return (
     <main className={styles.page}>
       <div className={styles.glow} aria-hidden="true" />
-      <header className={styles.header}>
-        <a className={styles.brand} href="/hackathon" aria-label="NoteFlow Agent home">
-          <span className={styles.brandMark}>N</span>
-          <span>NoteFlow Agent</span>
-        </a>
-        <div className={styles.headerActions}>
-          <div className={styles.category}>Collaborative Partner · 2026 entry</div>
-          <a className={styles.learningLink} href="/demo">
-            Try the learning workspace <span aria-hidden="true">→</span>
-          </a>
-        </div>
-      </header>
+      <HackathonHeader />
 
       <HackathonDemo connected={agentConnected} />
     </main>
