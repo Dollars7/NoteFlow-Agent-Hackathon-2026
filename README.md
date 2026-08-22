@@ -1,82 +1,167 @@
-# NoteFlow Agent — Turn evidence into retrieval practice
+# NoteFlow Agent — Build a learning rhythm that adapts to you
 
-> **The system carries decision cost. The learner carries retrieval cost.**
+> **Plan the rhythm, not the backlog. Let NoteFlow choose the next retrieval.**
 
 This is the standalone submission repository for the **2026 All Things Agentic Hackathon**, entered in the **Collaborative Partner** category.
 
 Repository: [`Dollars7/NoteFlow-Agent-Hackathon-2026`](https://github.com/Dollars7/NoteFlow-Agent-Hackathon-2026) · submission branch: `main`
 
-NoteFlow Agent reads a learner's goal and messy evidence, identifies the highest-value gap, persists an updated learning model, queues deeper asynchronous analysis, and turns its recommendation into an immediate retrieval exercise. It is a learning loop, not a planning-only chatbot.
+NoteFlow Agent is intended to learn **when and how a person can study sustainably**, create a personal learning rhythm, invite the learner back at the right moment, and then use the existing NoteFlow retrieval flow to decide what should be practiced.
 
-## Judge path
+It is not meant to be a pasted-notes report generator. The Agent should adapt the plan from real learning behavior.
 
-No account is required for the public judging flow.
+## Intended product loop
+
+1. The learner defines a goal and provides self-described preferences, habits, constraints, available time, and daily energy patterns.
+2. The Agent asks only the clarifying questions that would change the plan.
+3. The Agent creates a sustainable rhythm—for example, short frequent sessions, a fixed daily window, or sessions aligned with the learner's reported high-energy periods.
+4. A notification invites the learner to begin; it does not create an overdue task.
+5. NoteFlow starts a retrieval session and selects the next knowledge object from memory evidence and goal relevance.
+6. The learner's attempt, stuck point, skip, and memory feedback return to the Agent.
+7. The Agent revises timing, session load, knowledge scope, and the next invitation.
+8. Longer analysis can continue asynchronously and update the future rhythm after the learner leaves.
+
+```text
+Goal + personal learning context
+  → adaptive rhythm
+  → notification
+  → NoteFlow retrieval session
+  → real memory evidence
+  → Agent revises the rhythm
+```
+
+The learner profile is self-reported product context, not a medical, neurological, or psychological diagnosis.
+
+## What changes from the original NoteFlow
+
+| Original NoteFlow foundation | Hackathon Agent direction |
+| --- | --- |
+| Retrieval-first note and card system | Personal learning-rhythm partner |
+| Deterministic Flow Engine chooses the next card | Agent decides when to invite learning and how much load to propose |
+| Goal filters and interview sprint controls | Adaptive plan based on preferences, constraints, availability, and observed behavior |
+| Feedback reschedules memory objects | Feedback also revises the Agent's future rhythm |
+| User opens the app to begin | Notification brings the learner back at an appropriate time |
+
+The original Flow Engine remains responsible for **what to retrieve now**. The Agent becomes responsible for **when to invite learning, why the rhythm should change, and how the plan adapts over time**.
+
+## Product rules
+
+- A learning plan is a rhythm, not a task backlog.
+- Missing a notification never becomes an overdue obligation.
+- The Agent may recommend session size, but it must not punish the learner for stopping.
+- Retrieval evidence is more important than a personality label.
+- The learner can inspect and change the assumptions used by the Agent.
+- Notifications and background work must be opt-in and explainable.
+
+## Current implementation status
+
+### Working now
+
+- default-English public experience with an in-place Chinese switch;
+- no-account judging and guest-practice path;
+- goal and unstructured-evidence intake;
+- Gemini 3.5 Flash reasoning through Google ADK;
+- Firestore current-model mutation plus immutable versions;
+- Pub/Sub asynchronous analysis delivered to a private Cloud Run worker;
+- direct handoff from an Agent-selected retrieval prompt into the existing NoteFlow practice flow;
+- transparent preview labeling when the live Agent connection is absent.
+
+### Required next to deliver the intended product
+
+- learner-context onboarding for preferences, constraints, availability, and self-reported energy windows;
+- an Agent-generated clarification turn instead of only a prewritten optional question;
+- a persisted rhythm and schedule model;
+- opt-in notification delivery;
+- practice outcomes sent back to the Google Agent;
+- visible before-and-after plan changes;
+- completed background analysis reflected in the learner's next session.
+
+Until these items are implemented, the current build demonstrates the Agent infrastructure and the first Agent-to-practice handoff, not the complete adaptive learning-rhythm promise.
+
+## Current working judge path
+
+No account is required.
 
 1. Open the root page or `/hackathon`.
-2. Keep English, the first-visit default, or switch the same interface to Chinese.
-3. Enter a learning goal, paste evidence, and optionally add one clarification.
-4. Run NoteFlow Agent once.
-5. Review the visible Agent trace, diagnosis, learning-model mutation, and next retrieval move.
+2. Keep English or switch the same interface to Chinese.
+3. Enter a learning goal and unstructured learning evidence.
+4. Run NoteFlow Agent.
+5. Review the Agent response and auditable model action.
 6. Select **Practice the next step**.
-7. NoteFlow opens `/demo`, creates a real retrieval card from the Agent handoff, and starts the learning attempt immediately.
+7. NoteFlow opens `/demo` and starts the Agent-selected retrieval card.
 
-`/account` is an optional personal-account route. Supabase configuration is not needed for judging or guest practice.
-
-## Why it is agentic
-
-The Agent does more than generate text:
-
-- reasons over the goal, source evidence, and learner clarification with Gemini;
-- calls an auditable Firestore tool that updates the current model and creates an immutable version;
-- calls a Pub/Sub tool that queues a safe-digest deep-analysis job;
-- lets a private Cloud Run worker perform the asynchronous analysis and write the completed result back to Firestore;
-- returns one focused diagnosis and one retrieval move;
-- hands that move into the existing retrieval engine as an actionable practice card.
+`/account` is an optional personal-account route. Supabase is not required for judging or guest practice.
 
 ## Google technology
 
-| Technology | Role in NoteFlow Agent |
+| Technology | Current role |
 | --- | --- |
-| Gemini 3.5 Flash through Vertex AI | Goal-and-evidence reasoning in the interactive Agent and background analysis |
-| Google ADK for TypeScript | Agent orchestration and function tools |
-| Cloud Run | Interactive ADK API service and separate private background worker |
+| Gemini 3.5 Flash through Vertex AI | Interactive evidence reasoning and background analysis |
+| Google ADK for TypeScript | Agent orchestration and scoped function tools |
+| Cloud Run | Interactive ADK API service and separate private worker |
 | Firestore | Current learning model, immutable model versions, and completed analyses |
-| Pub/Sub | Asynchronous deep-analysis jobs delivered to the private worker with OIDC |
+| Pub/Sub | Safe-digest asynchronous analysis jobs delivered with OIDC |
 
-The browser never receives Google Cloud credentials, the Cloud Run service URL, or the shared service token. A same-origin server route owns that boundary.
+The browser never receives Google Cloud credentials, the Cloud Run URL, or the shared service token. A same-origin server route owns that boundary.
 
 ## Verified live-cloud evidence
 
-The Google Agent stack is running in the entrant-owned billing project `project-0069ddaa-e176-4b98-9db`.
-
-A real end-to-end run produced:
+The Google Agent stack is running in entrant-owned billing project `project-0069ddaa-e176-4b98-9db`.
 
 - Firestore immutable mutation: `9aPqpj5FpIXwgGf89HVQ`
 - Pub/Sub message: `21517632790505643`
 - background status: `complete`
 - completion time: `2026-08-22T17:43:24.168Z`
 
-The public frontend is currently being moved away from the temporary `chatgpt.site` host to an independent GitHub-connected domain. Until that compatible server deployment is complete, the repository is the source of truth; no obsolete host is presented as the submission demo.
+These identifiers prove the current evidence-to-model-to-background-job path. They do not claim that the planned notification and feedback loop is already implemented.
+
+## Vercel import: choose only the web project
+
+Vercel may report two deployable directories in this repository:
+
+1. **Import `NoteFlow-Agent-Hackathon-2026`** — this is the repository-root web experience.
+2. **Do not import `hackathon-agent` as a second Vercel website** — that directory is the protected Google ADK backend and belongs on Cloud Run.
+
+Configure these as server-only variables on the root web project:
+
+```text
+NOTEFLOW_AGENT_URL
+NOTEFLOW_AGENT_SHARED_SECRET
+```
+
+Do not expose either value with a `NEXT_PUBLIC_` prefix. A Vercel import is not considered complete until the root page, `/api/hackathon-agent`, the live Agent run, and the handoff to `/demo` have all been verified.
+
+The old `chatgpt.site` deployment is not the current submission URL.
 
 ## Architecture
 
+Current deployed Agent path:
+
 ```mermaid
 flowchart LR
-    Judge["Judge or learner"] --> Web["Bilingual public web flow"]
-    Web --> Proxy["Same-origin server boundary"]
-    Proxy --> API["Google ADK API on Cloud Run"]
+    Web["Bilingual web flow"] --> Proxy["Same-origin server boundary"]
+    Proxy --> API["Google ADK on Cloud Run"]
     API --> Gemini["Gemini 3.5 Flash"]
-    API --> Persist["persist_learning_model tool"]
-    API --> Queue["queue_deep_analysis tool"]
-    Persist --> Firestore[("Firestore current + immutable versions")]
-    Queue --> PubSub[["Pub/Sub deep-analysis job"]]
+    API --> Firestore[("Firestore model versions")]
+    API --> PubSub[["Pub/Sub job"]]
     PubSub --> Worker["Private Cloud Run worker"]
     Worker --> Firestore
     API --> Web
-    Web --> Practice["Real retrieval card in /demo"]
+    Web --> Practice["NoteFlow retrieval in /demo"]
 ```
 
-See the detailed [architecture and trust boundaries](docs/HACKATHON_ARCHITECTURE.md).
+Target experience extension:
+
+```mermaid
+flowchart LR
+    Context["Goal + learning context"] --> Rhythm["Adaptive rhythm"]
+    Rhythm --> Notice["Opt-in notification"]
+    Notice --> Flow["NoteFlow retrieval flow"]
+    Flow --> Evidence["Attempt + memory feedback"]
+    Evidence --> Rhythm
+```
+
+See the detailed [current architecture and trust boundaries](docs/HACKATHON_ARCHITECTURE.md).
 
 ## Run the web app locally
 
@@ -87,16 +172,7 @@ pnpm install
 pnpm dev
 ```
 
-Open `http://localhost:3000`. If the server-only Agent variables are absent, the interface remains usable in an explicitly labeled preview mode and never represents sample output as a live Gemini response.
-
-For a compatible server deployment, configure:
-
-```text
-NOTEFLOW_AGENT_URL
-NOTEFLOW_AGENT_SHARED_SECRET
-```
-
-The optional `/account` route additionally accepts the public Supabase variables documented in [authentication setup](docs/AUTH_SETUP.md).
+Open `http://localhost:3000`. Without the server-only Agent variables, the interface uses clearly labeled preview output.
 
 ## Run the Google ADK service locally
 
@@ -109,7 +185,7 @@ pnpm test
 pnpm dev
 ```
 
-Confirm that `http://localhost:8000/list-apps` returns `["agent"]`. Complete setup and Cloud Run instructions are in the [Agent service README](hackathon-agent/README.md).
+Confirm `http://localhost:8000/list-apps` returns `["agent"]`. Complete backend instructions are in the [Agent service README](hackathon-agent/README.md).
 
 ## Validate
 
@@ -121,7 +197,7 @@ pnpm exec tsc --noEmit
 
 ## Transparent development record
 
-NoteFlow existed before the contest. The repository preserves that history and does not present the earlier product foundation as hackathon-period work.
+The earlier NoteFlow product is disclosed as pre-existing work. The repository retains its history and does not present the retrieval foundation as contest-period development.
 
 - [Pre-existing work and claim boundary](HACKATHON_DISCLOSURE.md)
 - [Dated, commit-linked development log](HACKATHON_DEVLOG.md)
@@ -130,21 +206,6 @@ NoteFlow existed before the contest. The repository preserves that history and d
 - [Submission readiness checklist](HACKATHON_SUBMISSION_CHECKLIST.md)
 - Pre-contest baseline: `c42c840c2d881207ed6763a3280d198bc1189bfc`
 
-### Pre-existing foundation
+The stable pre-contest product remains in the original [`Dollars7/NoteFlow`](https://github.com/Dollars7/NoteFlow/tree/main) repository.
 
-- note library and import tools;
-- retrieval-first learning workspace and deterministic scheduler;
-- goal controls, authentication, D1 persistence, and visual identity.
-
-### Contest-period work claimed by this entry
-
-- public bilingual Collaborative Partner experience;
-- Gemini 3.5 Flash and Google ADK Agent behavior;
-- Firestore mutation history and Pub/Sub background analysis;
-- Cloud Run services and their authenticated boundary;
-- direct Agent-to-practice handoff;
-- contest architecture, evaluation evidence, and reproducibility documentation.
-
-The stable pre-contest product remains in the original NoteFlow repository on [`main`](https://github.com/Dollars7/NoteFlow/tree/main). This standalone repository preserves the inherited Git history and the documented baseline instead of resetting or concealing the pre-existing work.
-
-> **Don't plan. Retrieve. Remember.**
+> **Plan the rhythm. Enter the Flow. Remember.**

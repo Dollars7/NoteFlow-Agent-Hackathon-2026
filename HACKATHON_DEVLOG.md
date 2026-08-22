@@ -74,6 +74,14 @@ All timestamps use America/Phoenix (UTC-07:00 during the contest). This log reco
 - Retained the local source branch and the complete standalone repository history so the deleted remote branch remains recoverable.
 - Repository consolidation record commit: `7ccfaf3` (`docs: record repository consolidation`).
 
+## 2026-08-22 — Product-direction alignment
+
+- Corrected the submission story from a one-shot evidence-to-retrieval assistant to the intended personal learning-rhythm partner.
+- Documented the intended loop: learner-controlled context, adaptive rhythm, opt-in notification, NoteFlow retrieval, real memory feedback, and a revised future rhythm.
+- Preserved the original NoteFlow responsibility: the Flow Engine chooses what to retrieve, while the Agent decides when to invite learning and how the rhythm adapts.
+- Separated current working functionality from planned notification, scheduling, and feedback-loop work so the README does not overstate the deployed product.
+- Added Vercel import guidance: deploy the repository-root web project only; keep `hackathon-agent` on Cloud Run.
+
 ## Logging rules
 
 - Add a dated entry for each material feature, deployment, or submission change.
