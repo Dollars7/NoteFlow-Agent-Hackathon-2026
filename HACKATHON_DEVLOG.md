@@ -97,6 +97,7 @@ All timestamps use America/Phoenix (UTC-07:00 during the contest). This log reco
 - Redeployed production as `dpl_HfddW3RgbD8dN8tY2faiSS5XzHGW`; Vercel reported `Ready` and assigned the stable public domain `https://note-flow-agent-hackathon-2026.vercel.app`.
 - Repeated the public judge path against the stable domain. Gemini returned `READY`, Firestore persisted immutable model version `8DopLuEwDZ4SVnk4eqyn`, and **Practice the next step** opened the exact Agent-selected retrieval in `/demo?source=agent`.
 - Verified English-first rendering and the in-place Chinese interface switch on the deployed practice flow. The generated retrieval remained in the language selected when that Agent run began, as intended.
+- Verified Vercel deployment record commit: `46bd09c` (`docs: record verified Vercel deployment`).
 
 ## Logging rules
 
