@@ -92,6 +92,11 @@ All timestamps use America/Phoenix (UTC-07:00 during the contest). This log reco
 - Verified the standard Next.js 16.2.6 production build locally, including `/`, `/hackathon`, `/demo`, `/account`, and both API routes.
 - The second deployment (`dpl_9Fyqu9yM4XqCsAbmVFBSD4BMSTGD`) compiled the Next.js web app but failed when the root type checker entered `hackathon-agent/agent.ts` without the separately installed Cloud Run dependencies.
 - Kept the deployment boundary clean by excluding `hackathon-agent` from the root web TypeScript project instead of installing backend-only Google packages in the Vercel frontend.
+- The third source deployment reached `Ready` from commit `a00c23b` after the root TypeScript boundary was corrected.
+- The first live browser run then returned HTTP 401. The Vercel sensitive value contained the 28-character environment-variable name rather than the existing 64-character Cloud Run shared value. Corrected the Vercel value without exposing either secret in the repository or this log.
+- Redeployed production as `dpl_HfddW3RgbD8dN8tY2faiSS5XzHGW`; Vercel reported `Ready` and assigned the stable public domain `https://note-flow-agent-hackathon-2026.vercel.app`.
+- Repeated the public judge path against the stable domain. Gemini returned `READY`, Firestore persisted immutable model version `8DopLuEwDZ4SVnk4eqyn`, and **Practice the next step** opened the exact Agent-selected retrieval in `/demo?source=agent`.
+- Verified English-first rendering and the in-place Chinese interface switch on the deployed practice flow. The generated retrieval remained in the language selected when that Agent run began, as intended.
 
 ## Logging rules
 

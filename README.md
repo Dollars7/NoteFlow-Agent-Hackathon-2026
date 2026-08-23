@@ -6,6 +6,8 @@ This is the standalone submission repository for the **2026 All Things Agentic H
 
 Repository: [`Dollars7/NoteFlow-Agent-Hackathon-2026`](https://github.com/Dollars7/NoteFlow-Agent-Hackathon-2026) · submission branch: `main`
 
+Hosted demo: **[note-flow-agent-hackathon-2026.vercel.app](https://note-flow-agent-hackathon-2026.vercel.app)**
+
 NoteFlow Agent is intended to learn **when and how a person can study sustainably**, create a personal learning rhythm, invite the learner back at the right moment, and then use the existing NoteFlow retrieval flow to decide what should be practiced.
 
 It is not meant to be a pasted-notes report generator. The Agent should adapt the plan from real learning behavior.
@@ -82,7 +84,7 @@ Until these items are implemented, the current build demonstrates the Agent infr
 
 No account is required.
 
-1. Open the root page or `/hackathon`.
+1. Open the [hosted demo](https://note-flow-agent-hackathon-2026.vercel.app) (the root page and `/hackathon` show the same judge flow).
 2. Keep English or switch the same interface to Chinese.
 3. Enter a learning goal and unstructured learning evidence.
 4. Run NoteFlow Agent.
@@ -115,7 +117,15 @@ The Google Agent stack is running in entrant-owned billing project `project-0069
 
 These identifiers prove the current evidence-to-model-to-background-job path. They do not claim that the planned notification and feedback loop is already implemented.
 
-## Vercel import: choose only the web project
+The independent Vercel production deployment was also tested end to end on August 22, 2026. A public judge run returned `READY`, persisted immutable Firestore model version `8DopLuEwDZ4SVnk4eqyn`, and handed the Agent-selected retrieval prompt into `/demo?source=agent`.
+
+## Hosted demo and Vercel boundary
+
+The current submission URL is:
+
+```text
+https://note-flow-agent-hackathon-2026.vercel.app
+```
 
 Vercel may report two deployable directories in this repository:
 
