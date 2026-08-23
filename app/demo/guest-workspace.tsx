@@ -22,14 +22,14 @@ export function GuestWorkspace() {
   };
 
   useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("source") !== "agent") return;
     const raw = window.localStorage.getItem(hackathonHandoffKey);
     if (!raw) return;
     try {
       const parsed = JSON.parse(raw) as unknown;
       if (isHackathonHandoff(parsed)) setAgentHandoff(parsed);
     } catch {
-      // Ignore an incomplete handoff and open the normal guest workspace.
-    } finally {
+      // Remove an invalid handoff and open the normal guest workspace.
       window.localStorage.removeItem(hackathonHandoffKey);
     }
   }, []);

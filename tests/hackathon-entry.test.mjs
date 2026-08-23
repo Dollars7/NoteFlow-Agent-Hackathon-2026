@@ -27,6 +27,9 @@ test("declares the mandatory Google agent stack and honest preview behavior", as
   assert.match(agent, /batch\.create\(versionRef, payload\)/);
   assert.match(agent, /name: 'queue_deep_analysis'/);
   assert.match(agent, /publishMessage\(\{json: job\}\)/);
+  assert.match(agent, /learnerContextSchema/);
+  assert.match(agent, /rhythmPlanSchema/);
+  assert.match(agent, /NEXT INVITATION/);
   assert.match(agent, /no persistence was claimed/i);
   assert.match(agent, /no background job was claimed/i);
   assert.match(worker, /new GoogleGenAI\(\{vertexai: true, project, location\}\)/);
@@ -82,7 +85,7 @@ test("serves the complete learning workspace without requiring an account", asyn
 
   assert.equal(response.status, 200);
   const html = await response.text();
-  assert.match(html, /访客演示 · 保存在当前浏览器/);
-  assert.match(html, /开始本次学习/);
-  assert.match(html, /笔记库/);
+  assert.match(html, /Guest demo · saved in this browser/);
+  assert.match(html, /Start this session/);
+  assert.match(html, /Notes/);
 });

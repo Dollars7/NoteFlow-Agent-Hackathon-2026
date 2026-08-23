@@ -19,7 +19,13 @@ import {
   type RetrievalEvidence,
   type SkillState,
 } from "../lib/flow-engine";
-import type { HackathonHandoff } from "../lib/hackathon-handoff";
+import {
+  extractAgentSection,
+  extractAgentText,
+  latestRhythmKey,
+  type HackathonHandoff,
+  type RhythmRevision,
+} from "../lib/hackathon-handoff";
 import { GoalPlanner } from "./goal-planner";
 import { LanguageSwitch, useLocale, type Locale } from "./locale";
 import { NoteLibrary } from "./note-library";
@@ -248,6 +254,8 @@ export default function NoteFlowApp({
   const [recordingState, setRecordingState] = useState<"idle" | "recording" | "ready" | "error">("idle");
   const [recordingError, setRecordingError] = useState("");
   const [audioUrl, setAudioUrl] = useState("");
+  const [agentSyncStage, setAgentSyncStage] = useState<"idle" | "running" | "complete" | "error">("idle");
+  const [rhythmRevision, setRhythmRevision] = useState<RhythmRevision | null>(null);
 
   const attemptStartedAt = useRef(0);
   const mediaRecorder = useRef<MediaRecorder | null>(null);
@@ -597,6 +605,50 @@ This is not a debt. It has returned to the scheduling pool as an independent car
     }));
   };
 
+  const syncAgentFeedback = async (card: NoteCard, feedback: MemoryFeedback, delta: MemoryDelta) => {
+    if (!agentHandoff?.continuationToken || card.id !== agentHandoff.id) return;
+    setAgentSyncStage("running");
+    setRhythmRevision(null);
+
+    try {
+      const response = await fetch("/api/hackathon-agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-noteflow-locale": locale },
+        body: JSON.stringify({
+          action: "feedback",
+          locale,
+          continuationToken: agentHandoff.continuationToken,
+          practice: {
+            cardTitle: card.title,
+            prompt: card.prompt,
+            attemptOutcome: attemptOutcome ?? "stuck",
+            feedback,
+            hintDepth,
+            reactionMs,
+            memoryBefore: Math.round(delta.before * 100),
+            memoryAfter: Math.round(delta.after * 100),
+          },
+        }),
+      });
+      const payload = (await response.json()) as { events?: unknown; error?: string };
+      if (!response.ok) throw new Error(payload.error || `Agent feedback failed (${response.status}).`);
+      const report = extractAgentText(payload.events, "");
+      if (!report) throw new Error("The Agent returned no rhythm update.");
+      const revision: RhythmRevision = {
+        before: agentHandoff.rhythmPlan || t("Initial rhythm from the planning run", "规划阶段生成的初始节奏"),
+        after: extractAgentSection(report, ["rhythm plan", "学习节奏"]) || report,
+        nextInvitation: extractAgentSection(report, ["next invitation", "下次邀请"]),
+        agentReport: report,
+        updatedAt: new Date().toISOString(),
+      };
+      setRhythmRevision(revision);
+      window.localStorage.setItem(latestRhythmKey, JSON.stringify(revision));
+      setAgentSyncStage("complete");
+    } catch {
+      setAgentSyncStage("error");
+    }
+  };
+
   const submitFeedback = (feedback: MemoryFeedback) => {
     if (!currentCard) return;
     const result = applyMemoryFeedback(skills, currentCard, feedback, hintDepth);
@@ -614,6 +666,7 @@ This is not a debt. It has returned to the scheduling pool as an independent car
         recordedAt: new Date().toISOString(),
       },
     ]);
+    void syncAgentFeedback(currentCard, feedback, result.delta);
 
     let prerequisiteId = currentCard.prerequisiteCardId;
 
@@ -910,6 +963,12 @@ This is not a debt. It has returned to the scheduling pool as an independent car
               "Cards that did not appear have returned to the memory scheduling pool. They are not a backlog and will not become a debt tomorrow.",
               "刚才没有出现的卡已经回到记忆调度池。它们不是 backlog，也不会在明天变成欠债。",
             )}</p>
+            {rhythmRevision && (
+              <div className="agent-rhythm-sync compact">
+                <p className="eyebrow">{t("Agent revised the next rhythm", "Agent 已调整下一次节奏")}</p>
+                <strong>{rhythmRevision.nextInvitation || t("The next invitation follows the revised rhythm.", "下次邀请将按照新节奏出现。")}</strong>
+              </div>
+            )}
             <button className="primary-button" type="button" onClick={() => setPhase("pre")}>
               {t("Return to the start", "回到开始前")}
               <span aria-hidden="true">↗</span>
@@ -1120,6 +1179,44 @@ This is not a debt. It has returned to the scheduling pool as an independent car
                       ? "在这张卡再次出现之前，系统会先检索一张前置卡。"
                       : "这张卡已回到正常的记忆调度中。"
                   : memoryDelta.message}</p>
+                {agentSyncStage !== "idle" && (
+                  <div className={`agent-rhythm-sync ${agentSyncStage}`} aria-live="polite">
+                    {agentSyncStage === "running" && (
+                      <>
+                        <p className="eyebrow">{t("Feedback returned to the Google Agent", "练习反馈已回传 Google Agent")}</p>
+                        <strong>{t("Revising the next rhythm…", "正在调整下一次学习节奏…")}</strong>
+                      </>
+                    )}
+                    {agentSyncStage === "error" && (
+                      <>
+                        <p className="eyebrow">{t("Local memory updated", "本地记忆已更新")}</p>
+                        <strong>{t("The cloud rhythm could not be revised this time.", "这一次未能同步调整云端节奏。")}</strong>
+                      </>
+                    )}
+                    {agentSyncStage === "complete" && rhythmRevision && (
+                      <>
+                        <p className="eyebrow">{t("Visible plan mutation", "可见的计划变化")}</p>
+                        <div className="rhythm-comparison">
+                          <div>
+                            <span>{t("Before practice", "练习前")}</span>
+                            <p>{rhythmRevision.before}</p>
+                          </div>
+                          <b aria-hidden="true">→</b>
+                          <div>
+                            <span>{t("After this evidence", "根据本次证据调整后")}</span>
+                            <p>{rhythmRevision.after}</p>
+                          </div>
+                        </div>
+                        {rhythmRevision.nextInvitation && (
+                          <div className="next-invitation">
+                            <span>{t("Next invitation", "下次邀请")}</span>
+                            <strong>{rhythmRevision.nextInvitation}</strong>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
                 <div className="delta-actions">
                   <button className="primary-button" type="button" onClick={advanceToNextCard}>
                     {t("Next card", "下一张")}

@@ -177,7 +177,7 @@
 
 .field { display: block; margin-top: 14px; }
 .field > span { display: block; margin: 0 0 8px 2px; }
-.field input, .field textarea {
+.field input, .field textarea, .field select {
   background: #0e1310;
   border: 1px solid rgba(238, 246, 232, 0.1);
   border-radius: 11px;
@@ -190,8 +190,16 @@
   width: 100%;
 }
 
-.field input:focus, .field textarea:focus { background: #111713; border-color: rgba(217, 255, 136, 0.44); }
+.field input:focus, .field textarea:focus, .field select:focus { background: #111713; border-color: rgba(217, 255, 136, 0.44); }
 .field textarea { color: #b7beb6; font-size: 12px; }
+.field select { appearance: none; color: #cbd2ca; cursor: pointer; font-size: 11px; }
+.contextBlock { background: rgba(217, 255, 136, 0.035); border: 1px solid rgba(217, 255, 136, 0.12); border-radius: 14px; margin-top: 16px; padding: 14px; }
+.contextHeading { align-items: baseline; display: flex; gap: 10px; justify-content: space-between; }
+.contextHeading > span { color: var(--agent-lime); font-size: 10px; font-weight: 780; letter-spacing: 0.11em; text-transform: uppercase; }
+.contextHeading small { color: #6f7970; font-size: 9px; }
+.contextGrid { display: grid; gap: 0 9px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.reminderChoice { align-items: center; color: #aab3aa; cursor: pointer; display: flex; font-size: 10px; gap: 9px; margin-top: 15px; }
+.reminderChoice input { accent-color: var(--agent-lime); height: 15px; width: 15px; }
 .clarification {
   background: rgba(145, 217, 200, 0.055);
   border: 1px solid rgba(145, 217, 200, 0.12);
@@ -248,6 +256,17 @@
 .emptyOutput { align-items: center; color: #717a72; display: flex; gap: 18px; min-height: 245px; }
 .emptyOutput > span { color: var(--agent-lime); font-size: 28px; }
 .emptyOutput p { font-size: 13px; line-height: 1.65; max-width: 440px; }
+.rhythmCard { background: linear-gradient(135deg, rgba(217, 255, 136, 0.1), rgba(110, 168, 255, 0.055)); border: 1px solid rgba(217, 255, 136, 0.22); border-radius: 14px; margin-top: 22px; padding: 17px; }
+.rhythmHeading { align-items: center; display: flex; gap: 12px; justify-content: space-between; }
+.rhythmHeading span { color: var(--agent-lime); font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.rhythmHeading strong { color: #c8d1c5; font-size: 10px; }
+.rhythmCard > p { color: #c9d1c7; font-size: 12px; line-height: 1.65; margin: 14px 0; white-space: pre-wrap; }
+.invitationLine { border-top: 1px solid rgba(217, 255, 136, 0.14); display: grid; gap: 5px; padding-top: 13px; }
+.invitationLine span { color: #829083; font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; }
+.invitationLine strong { color: #eff5eb; font-size: 11px; line-height: 1.5; }
+.reminderActions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.reminderActions button { background: rgba(10, 15, 12, 0.7); border: 1px solid rgba(217, 255, 136, 0.22); border-radius: 9px; color: var(--agent-lime); cursor: pointer; font: inherit; font-size: 10px; min-height: 36px; padding: 0 12px; }
+.reminderStatus { color: #a8b5a5; display: block; font-size: 9px; line-height: 1.5; margin-top: 10px; }
 .handoffAction { align-items: center; background: rgba(200, 255, 106, 0.08); border: 1px solid rgba(200, 255, 106, 0.22); border-radius: 14px; display: flex; gap: 18px; justify-content: space-between; margin-top: 22px; padding: 16px; }
 .handoffAction div { display: grid; gap: 5px; }
 .handoffAction strong { color: #edf3eb; font-size: 13px; }
@@ -286,6 +305,9 @@
   .intro h1 { font-size: 45px; }
   .lede { font-size: 15px; }
   .runPanel, .workflowCard, .outputCard { border-radius: 13px; padding: 18px; }
+  .contextGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .contextHeading { align-items: flex-start; flex-direction: column; }
+  .rhythmHeading { align-items: flex-start; flex-direction: column; }
   .handoffAction { align-items: stretch; flex-direction: column; }
   .handoffAction button { justify-content: space-between; width: 100%; }
   .proof { margin-top: 80px; }

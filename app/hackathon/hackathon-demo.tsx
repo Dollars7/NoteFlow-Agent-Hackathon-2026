@@ -2,14 +2,19 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  extractAgentSection,
+  extractAgentText,
   extractNextRetrieval,
   hackathonHandoffKey,
   type HackathonHandoff,
+  type LearnerContext,
+  type StudyPattern,
+  type EnergyWindow,
 } from "../../lib/hackathon-handoff";
 import { useLocale, type Locale } from "../locale";
 import styles from "./hackathon.module.css";
 
-type Stage = "intake" | "running" | "complete" | "error";
+type Stage = "intake" | "running" | "clarifying" | "complete" | "error";
 
 const samples: Record<Locale, { goal: string; notes: string }> = {
   en: {
@@ -28,9 +33,22 @@ Redis 缓存失效——项目中曾出现陈旧读取。
   },
 };
 
+const contextSamples: Record<Locale, { preferences: string; constraints: string }> = {
+  en: {
+    preferences: "I focus best in short sessions and remember more when I explain ideas aloud.",
+    constraints: "Weekdays are busy; avoid long evening sessions and never create overdue work.",
+  },
+  zh: {
+    preferences: "我更适合短时间学习，而且把概念说出来时记得更牢。",
+    constraints: "工作日比较忙；避免过长的晚间学习，也不要制造逾期任务。",
+  },
+};
+
 const previewPlans = {
   en: {
     diagnosis: "Your notes contain four topics, but the recurring gap is decision-making under distributed-system tradeoffs.",
+    rhythm: "Five short 20-minute sessions each week, aligned with the learner's evening energy window. Stop after one high-value retrieval when energy is low.",
+    invitation: "Today at 19:00 — one retrieval, with permission to stop after it.",
     nextPrompt:
       "A checkout service must keep accepting writes during a network partition. What consistency guarantee would you relax, and what user-visible failure would you design for?",
     mutation:
@@ -38,43 +56,70 @@ const previewPlans = {
   },
   zh: {
     diagnosis: "你的笔记包含四个主题，但反复出现的缺口是在分布式系统权衡中做出决策。",
+    rhythm: "每周五次、每次 20 分钟，安排在学习者晚间精力窗口；精力不足时只完成一次高价值检索即可停止。",
+    invitation: "今天 19:00——只做一次检索，完成后可以直接停止。",
     nextPrompt:
       "结账服务必须在网络分区期间继续接受写入。你会放宽哪一种一致性保证，又会为哪一种用户可见故障做设计？",
     mutation: "已创建‘可用性与延迟’前置卡，并把分区键设计安排在法定人数推理之后。",
   },
 } as const;
 
-function extractAgentText(events: unknown, fallback: string): string {
-  if (!Array.isArray(events)) return fallback;
+function nextReminderDate(preferredTime: string): Date {
+  const [hours, minutes] = preferredTime.split(":").map(Number);
+  const next = new Date();
+  next.setHours(hours, minutes, 0, 0);
+  if (next.getTime() <= Date.now() + 60_000) next.setDate(next.getDate() + 1);
+  return next;
+}
 
-  for (const event of [...events].reverse()) {
-    if (!event || typeof event !== "object") continue;
-    const content = (event as { content?: { parts?: unknown[] } }).content;
-    if (!Array.isArray(content?.parts)) continue;
-    for (const part of content.parts) {
-      if (part && typeof part === "object" && typeof (part as { text?: unknown }).text === "string") {
-        return (part as { text: string }).text;
-      }
-    }
-  }
-
-  return fallback;
+function formatIcsDate(value: Date): string {
+  return value.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
 }
 
 export function HackathonDemo({ connected }: { connected: boolean }) {
   const { locale, t } = useLocale();
   const [goal, setGoal] = useState(samples.en.goal);
   const [notes, setNotes] = useState(samples.en.notes);
+  const [learningPreferences, setLearningPreferences] = useState(contextSamples.en.preferences);
+  const [constraints, setConstraints] = useState(contextSamples.en.constraints);
+  const [studyPattern, setStudyPattern] = useState<StudyPattern>("short-frequent");
+  const [sessionMinutes, setSessionMinutes] = useState(20);
+  const [daysPerWeek, setDaysPerWeek] = useState(5);
+  const [energyWindow, setEnergyWindow] = useState<EnergyWindow>("evening");
+  const [preferredTime, setPreferredTime] = useState("19:00");
+  const [reminderOptIn, setReminderOptIn] = useState(true);
   const [answer, setAnswer] = useState("");
   const [stage, setStage] = useState<Stage>("intake");
   const [agentText, setAgentText] = useState("");
+  const [continuationToken, setContinuationToken] = useState("");
+  const [rhythmPlan, setRhythmPlan] = useState("");
+  const [nextInvitation, setNextInvitation] = useState("");
+  const [reminderStatus, setReminderStatus] = useState("");
   const previousLocale = useRef<Locale>("en");
+  const reminderTimer = useRef<number | null>(null);
+
+  const learnerContext = useMemo<LearnerContext>(() => ({
+    learningPreferences: learningPreferences.trim(),
+    constraints: constraints.trim(),
+    studyPattern,
+    sessionMinutes,
+    daysPerWeek,
+    energyWindow,
+    preferredTime,
+    reminderOptIn,
+  }), [constraints, daysPerWeek, energyWindow, learningPreferences, preferredTime, reminderOptIn, sessionMinutes, studyPattern]);
 
   useEffect(() => {
     const previous = samples[previousLocale.current];
     const next = samples[locale];
     setGoal((current) => current === previous.goal ? next.goal : current);
     setNotes((current) => current === previous.notes ? next.notes : current);
+    setLearningPreferences((current) => current === contextSamples[previousLocale.current].preferences
+      ? contextSamples[locale].preferences
+      : current);
+    setConstraints((current) => current === contextSamples[previousLocale.current].constraints
+      ? contextSamples[locale].constraints
+      : current);
     setAnswer((current) => {
       if (current === "Make the design decision under pressure") {
         return locale === "zh" ? "在压力下做出正确的设计决策" : current;
@@ -89,22 +134,31 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
 
   const runLabel = useMemo(() => {
     if (stage === "running") return t("Building the learning path…", "正在构建学习路径…");
+    if (stage === "clarifying") return t("Continue with this answer", "用这个回答继续");
     if (stage === "complete") return t("Run again with updated evidence", "用更新后的证据再次运行");
     return t("Build my learning path", "生成我的学习路径");
   }, [stage, t]);
 
-  async function runAgent() {
+  async function runAgent(action: "plan" | "clarification" = "plan") {
     setStage("running");
     setAgentText("");
+    setReminderStatus("");
+    if (action === "plan") {
+      setContinuationToken("");
+      setRhythmPlan("");
+      setNextInvitation("");
+    }
 
     if (!connected) {
       window.setTimeout(() => {
         const preview = previewPlans[locale];
         setAgentText(
           locale === "zh"
-            ? `${preview.diagnosis}\n\n下一次检索\n${preview.nextPrompt}\n\n知识模型更新\n${preview.mutation}`
-            : `${preview.diagnosis}\n\nNEXT RETRIEVAL\n${preview.nextPrompt}\n\nKNOWLEDGE MODEL UPDATE\n${preview.mutation}`,
+            ? `诊断\n${preview.diagnosis}\n\n学习节奏\n${preview.rhythm}\n\n下次邀请\n${preview.invitation}\n\n下一次检索\n${preview.nextPrompt}\n\n知识模型更新\n${preview.mutation}`
+            : `DIAGNOSIS\n${preview.diagnosis}\n\nRHYTHM PLAN\n${preview.rhythm}\n\nNEXT INVITATION\n${preview.invitation}\n\nNEXT RETRIEVAL\n${preview.nextPrompt}\n\nKNOWLEDGE MODEL UPDATE\n${preview.mutation}`,
         );
+        setRhythmPlan(preview.rhythm);
+        setNextInvitation(preview.invitation);
         setStage("complete");
       }, 720);
       return;
@@ -114,17 +168,34 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
       const runResponse = await fetch("/api/hackathon-agent", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-noteflow-locale": locale },
-        body: JSON.stringify({ goal, notes, clarification: answer, locale }),
+        body: JSON.stringify({
+          action,
+          goal,
+          notes,
+          clarification: answer,
+          locale,
+          learnerContext,
+          continuationToken: action === "clarification" ? continuationToken : undefined,
+        }),
       });
 
-      const payload = (await runResponse.json()) as { events?: unknown; error?: string };
+      const payload = (await runResponse.json()) as { events?: unknown; error?: string; continuationToken?: string };
       if (!runResponse.ok) {
         throw new Error(payload.error || t(`Agent run failed (${runResponse.status}).`, `Agent 运行失败（${runResponse.status}）。`));
       }
-      setAgentText(extractAgentText(payload.events, t(
+      const report = extractAgentText(payload.events, t(
         "The agent completed the run without a text response.",
         "Agent 已完成运行，但没有返回文字内容。",
-      )));
+      ));
+      setAgentText(report);
+      setContinuationToken(payload.continuationToken ?? continuationToken);
+      const clarificationQuestion = extractAgentSection(report, ["clarification", "澄清问题"]);
+      if (clarificationQuestion) {
+        setStage("clarifying");
+        return;
+      }
+      setRhythmPlan(extractAgentSection(report, ["rhythm plan", "学习节奏"]));
+      setNextInvitation(extractAgentSection(report, ["next invitation", "下次邀请"]));
       setStage("complete");
     } catch (error) {
       setAgentText(error instanceof Error ? error.message : t(
@@ -145,10 +216,65 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
       title: t("Agent-selected next retrieval", "Agent 选择的下一次检索"),
       nextRetrievalPrompt: extractNextRetrieval(agentText, locale),
       agentReport: agentText,
+      continuationToken,
+      learnerContext,
+      rhythmPlan,
+      nextInvitation,
       createdAt: new Date().toISOString(),
     };
     window.localStorage.setItem(hackathonHandoffKey, JSON.stringify(handoff));
     window.location.assign("/demo?source=agent");
+  }
+
+  function downloadCalendarInvitation() {
+    const startsAt = nextReminderDate(preferredTime);
+    const endsAt = new Date(startsAt.getTime() + sessionMinutes * 60_000);
+    const title = t("NoteFlow learning invitation", "NoteFlow 学习邀请");
+    const description = t(
+      "Open NoteFlow and complete the single retrieval selected for this rhythm. Stopping after it is allowed.",
+      "打开 NoteFlow，完成当前节奏选择的一次检索；做完即可停止。",
+    );
+    const ics = [
+      "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//NoteFlow//Learning Rhythm//EN", "CALSCALE:GREGORIAN",
+      "BEGIN:VEVENT", `UID:noteflow-${Date.now()}@noteflow`, `DTSTAMP:${formatIcsDate(new Date())}`,
+      `DTSTART:${formatIcsDate(startsAt)}`, `DTEND:${formatIcsDate(endsAt)}`,
+      `SUMMARY:${title}`, `DESCRIPTION:${description}`, "BEGIN:VALARM", "TRIGGER:-PT10M",
+      "ACTION:DISPLAY", `DESCRIPTION:${title}`, "END:VALARM", "END:VEVENT", "END:VCALENDAR",
+    ].join("\r\n");
+    const url = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "noteflow-learning-invitation.ics";
+    link.click();
+    URL.revokeObjectURL(url);
+    setReminderStatus(t("Calendar invitation downloaded.", "日历邀请已下载。"));
+  }
+
+  async function enableBrowserReminder() {
+    if (!("Notification" in window)) {
+      setReminderStatus(t("This browser does not support notifications. Use the calendar invitation instead.", "当前浏览器不支持通知，请改用日历邀请。"));
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      setReminderStatus(t("Notification permission was not enabled.", "未开启通知权限。"));
+      return;
+    }
+    const startsAt = nextReminderDate(preferredTime);
+    window.localStorage.setItem("noteflow-next-reminder-v1", JSON.stringify({ at: startsAt.toISOString(), rhythmPlan }));
+    if (reminderTimer.current) window.clearTimeout(reminderTimer.current);
+    const delay = startsAt.getTime() - Date.now();
+    if (delay <= 2_147_483_647) {
+      reminderTimer.current = window.setTimeout(() => {
+        new Notification(t("Your NoteFlow invitation is ready", "你的 NoteFlow 学习邀请到了"), {
+          body: t("Open one retrieval. There is no overdue work.", "只做一次检索，没有逾期任务。"),
+        });
+      }, delay);
+    }
+    new Notification(t("NoteFlow reminder enabled", "NoteFlow 提醒已开启"), {
+      body: t(`Next invitation: ${startsAt.toLocaleString()}`, `下次邀请：${startsAt.toLocaleString()}`),
+    });
+    setReminderStatus(t("Browser reminder enabled. Keep the calendar invitation as the durable reminder.", "浏览器提醒已开启；日历邀请可作为关闭页面后的持久提醒。"));
   }
 
   return (
@@ -202,24 +328,81 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
             <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={6} />
           </label>
 
-          <label className={`${styles.field} ${styles.clarification}`}>
-            <span>{t("One useful clarification · optional", "一个有用的澄清问题 · 可选")}</span>
-            <p>{t(
-              "Which moment matters more right now: explaining the concept clearly, or making the right design decision under pressure?",
-              "此刻哪件事更重要：把概念解释清楚，还是在压力下做出正确的设计决策？",
-            )}</p>
-            <input
-              value={answer}
-              onChange={(event) => setAnswer(event.target.value)}
-              placeholder={t("e.g. Make the design decision under pressure", "例如：在压力下做出正确的设计决策")}
-            />
-          </label>
+          <div className={styles.contextBlock}>
+            <div className={styles.contextHeading}>
+              <span>{t("Your learning rhythm", "你的学习节奏")}</span>
+              <small>{t("Self-described context, never a personality diagnosis", "由你自己描述，不做性格诊断")}</small>
+            </div>
+
+            <label className={styles.field}>
+              <span>{t("What helps you learn", "什么方式最适合你")}</span>
+              <textarea value={learningPreferences} onChange={(event) => setLearningPreferences(event.target.value)} rows={2} />
+            </label>
+
+            <label className={styles.field}>
+              <span>{t("Constraints the plan must respect", "计划必须尊重的限制")}</span>
+              <textarea value={constraints} onChange={(event) => setConstraints(event.target.value)} rows={2} />
+            </label>
+
+            <div className={styles.contextGrid}>
+              <label className={styles.field}>
+                <span>{t("Pattern", "学习方式")}</span>
+                <select value={studyPattern} onChange={(event) => setStudyPattern(event.target.value as StudyPattern)}>
+                  <option value="short-frequent">{t("Short + frequent", "少量多次")}</option>
+                  <option value="fixed-daily">{t("Fixed daily time", "每天固定时间")}</option>
+                  <option value="energy-aligned">{t("Follow energy", "跟随精力窗口")}</option>
+                </select>
+              </label>
+              <label className={styles.field}>
+                <span>{t("Session", "每次时长")}</span>
+                <select value={sessionMinutes} onChange={(event) => setSessionMinutes(Number(event.target.value))}>
+                  {[10, 20, 30, 45].map((minutes) => <option key={minutes} value={minutes}>{minutes} min</option>)}
+                </select>
+              </label>
+              <label className={styles.field}>
+                <span>{t("Days / week", "每周天数")}</span>
+                <select value={daysPerWeek} onChange={(event) => setDaysPerWeek(Number(event.target.value))}>
+                  {[3, 4, 5, 6, 7].map((days) => <option key={days} value={days}>{days}</option>)}
+                </select>
+              </label>
+              <label className={styles.field}>
+                <span>{t("Best energy", "最佳精力")}</span>
+                <select value={energyWindow} onChange={(event) => setEnergyWindow(event.target.value as EnergyWindow)}>
+                  <option value="morning">{t("Morning", "早晨")}</option>
+                  <option value="midday">{t("Midday", "中午")}</option>
+                  <option value="evening">{t("Evening", "晚间")}</option>
+                  <option value="variable">{t("It varies", "每天不同")}</option>
+                </select>
+              </label>
+              <label className={styles.field}>
+                <span>{t("Invitation time", "邀请时间")}</span>
+                <input type="time" value={preferredTime} onChange={(event) => setPreferredTime(event.target.value)} />
+              </label>
+            </div>
+
+            <label className={styles.reminderChoice}>
+              <input type="checkbox" checked={reminderOptIn} onChange={(event) => setReminderOptIn(event.target.checked)} />
+              <span>{t("Offer an opt-in reminder after the plan is ready", "计划生成后提供可选提醒")}</span>
+            </label>
+          </div>
+
+          {stage === "clarifying" && (
+            <label className={`${styles.field} ${styles.clarification}`}>
+              <span>{t("One question that changes the plan", "一个会改变计划的问题")}</span>
+              <p>{extractAgentSection(agentText, ["clarification", "澄清问题"])}</p>
+              <input
+                value={answer}
+                onChange={(event) => setAnswer(event.target.value)}
+                placeholder={t("Answer in your own words", "用你自己的话回答")}
+              />
+            </label>
+          )}
 
           <button
             className={styles.runButton}
             type="button"
-            onClick={() => void runAgent()}
-            disabled={stage === "running" || !goal.trim() || !notes.trim()}
+            onClick={() => void runAgent(stage === "clarifying" ? "clarification" : "plan")}
+            disabled={stage === "running" || !goal.trim() || !notes.trim() || (stage === "clarifying" && !answer.trim())}
           >
             <span>{runLabel}</span>
             <span aria-hidden="true">→</span>
@@ -252,6 +435,28 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
                 "The agent will return one diagnosis, one next retrieval prompt, and an auditable change to the learning model.",
                 "Agent 将返回一项诊断、一个下一次检索问题，以及一次可审计的学习模型变更。",
               )}</p>
+            </div>
+          )}
+          {stage === "complete" && rhythmPlan && (
+            <div className={styles.rhythmCard}>
+              <div className={styles.rhythmHeading}>
+                <span>{t("P0 rhythm created", "P0 学习节奏已生成")}</span>
+                <strong>{sessionMinutes} min · {daysPerWeek}× / {t("week", "周")}</strong>
+              </div>
+              <p>{rhythmPlan}</p>
+              {nextInvitation && (
+                <div className={styles.invitationLine}>
+                  <span>{t("Next invitation", "下次邀请")}</span>
+                  <strong>{nextInvitation}</strong>
+                </div>
+              )}
+              {reminderOptIn && (
+                <div className={styles.reminderActions}>
+                  <button type="button" onClick={downloadCalendarInvitation}>{t("Add to calendar", "添加到日历")}</button>
+                  <button type="button" onClick={() => void enableBrowserReminder()}>{t("Enable browser reminder", "开启浏览器提醒")}</button>
+                </div>
+              )}
+              {reminderStatus && <small className={styles.reminderStatus}>{reminderStatus}</small>}
             </div>
           )}
           {stage === "complete" && agentText && (

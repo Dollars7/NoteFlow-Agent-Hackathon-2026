@@ -25,6 +25,27 @@ const relationshipSchema = z.object({
   reason: z.string().min(1),
 });
 
+const learnerContextSchema = z.object({
+  learningPreferences: z.string().describe('Learner-controlled description of what helps them study.'),
+  constraints: z.string().describe('Time, energy, work, family, accessibility, or other stated constraints.'),
+  studyPattern: z.enum(['short-frequent', 'fixed-daily', 'energy-aligned']),
+  sessionMinutes: z.number().int().min(5).max(90),
+  daysPerWeek: z.number().int().min(1).max(7),
+  energyWindow: z.enum(['morning', 'midday', 'evening', 'variable']),
+  preferredTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+  reminderOptIn: z.boolean(),
+});
+
+const rhythmPlanSchema = z.object({
+  cadence: z.string().min(1).describe('A sustainable cadence, not a task backlog.'),
+  sessionMinutes: z.number().int().min(5).max(90),
+  preferredWindow: z.string().min(1),
+  loadRule: z.string().min(1).describe('How the session load changes from retrieval evidence.'),
+  nextInvitation: z.string().min(1).describe('The next proposed local invitation time or condition.'),
+  invitationReason: z.string().min(1),
+  notificationMode: z.enum(['calendar', 'browser', 'in-app', 'off']),
+});
+
 const persistLearningModel = new FunctionTool({
   name: 'persist_learning_model',
   description:
@@ -35,6 +56,8 @@ const persistLearningModel = new FunctionTool({
     diagnosis: z.string().min(1),
     concepts: z.array(conceptSchema).min(1).max(20),
     relationships: z.array(relationshipSchema).max(30),
+    learnerContext: learnerContextSchema,
+    rhythmPlan: rhythmPlanSchema,
     nextRetrievalPrompt: z.string().min(1),
     mutationSummary: z.string().min(1),
   }),
@@ -123,14 +146,16 @@ export const rootAgent = new LlmAgent({
 Your job is to lead the learner from messy notes and retrieval evidence to exactly one high-value next retrieval move. You actively synthesize and mutate the learning model instead of merely summarizing text.
 
 Operating contract:
-1. Identify the learner ID, goal, evidence, and clarification in the request.
-2. If essential decision-changing context is genuinely absent, ask exactly one concise clarification and stop. Do not ask for information that would not change the path.
-3. Otherwise infer concepts, gaps, and prerequisite relationships. Separate direct evidence from inference.
-4. Choose exactly one next retrieval prompt that requires an attempt, not recognition.
-5. Call persist_learning_model whenever you change the knowledge model. Never claim persistence unless the tool reports status "persisted".
-6. Call queue_deep_analysis only when useful work can continue asynchronously. Never claim a job is queued unless the tool reports status "queued".
-7. Keep private source material out of Pub/Sub; send only a safe digest.
+1. Identify the learner ID, goal, evidence, and learner-controlled context in the request. Never diagnose personality, psychology, neurology, or medical conditions.
+2. If essential decision-changing context is genuinely absent, return only a CLARIFICATION section containing exactly one concise question and stop. Do not ask for information that would not change the rhythm or retrieval path.
+3. Otherwise create a sustainable rhythm before selecting content. Respect the requested pattern, energy window, available days, session length, constraints, and reminder opt-in. A missed invitation never becomes overdue work.
+4. Infer concepts, gaps, and prerequisite relationships. Separate direct evidence from inference.
+5. Choose exactly one next retrieval prompt that requires an attempt, not recognition.
+6. Call persist_learning_model whenever you create or revise either the knowledge model or learning rhythm. Include learnerContext and rhythmPlan. Never claim persistence unless the tool reports status "persisted".
+7. When retrieval feedback arrives, compare the prior rhythm with the new evidence, revise only what the evidence supports, and explain the before-to-after change.
+8. Call queue_deep_analysis only when useful work can continue asynchronously. Never claim a job is queued unless the tool reports status "queued".
+9. Keep private source material out of Pub/Sub; send only a safe digest.
 
-Return four short sections: DIAGNOSIS, NEXT RETRIEVAL, MODEL MUTATION, BACKGROUND WORK. State tool status truthfully. Do not expose hidden chain-of-thought.`,
+For completed planning and feedback turns, return six short sections in this exact order: DIAGNOSIS, RHYTHM PLAN, NEXT INVITATION, NEXT RETRIEVAL, MODEL MUTATION, BACKGROUND WORK. State tool status truthfully. Do not expose hidden chain-of-thought.`,
   tools: [persistLearningModel, queueDeepAnalysis],
 });

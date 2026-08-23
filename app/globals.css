@@ -920,6 +920,50 @@ button:disabled {
   margin: 22px 0 0;
 }
 
+.agent-rhythm-sync {
+  background: linear-gradient(135deg, rgba(204, 255, 120, 0.08), rgba(102, 154, 255, 0.05));
+  border: 1px solid rgba(204, 255, 120, 0.18);
+  border-radius: 16px;
+  margin-top: 28px;
+  max-width: 760px;
+  padding: 18px;
+  text-align: left;
+  width: 100%;
+}
+
+.agent-rhythm-sync.running strong,
+.agent-rhythm-sync.error strong,
+.agent-rhythm-sync.compact strong {
+  color: #dce4d9;
+  display: block;
+  font-size: 13px;
+  line-height: 1.55;
+  margin-top: 7px;
+}
+
+.agent-rhythm-sync.error { border-color: rgba(255, 195, 112, 0.24); }
+.agent-rhythm-sync.compact { margin: 24px 0 0; }
+
+.rhythm-comparison {
+  align-items: stretch;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  margin-top: 13px;
+}
+
+.rhythm-comparison > div {
+  background: rgba(7, 11, 9, 0.5);
+  border-radius: 11px;
+  padding: 13px;
+}
+
+.rhythm-comparison > b { align-self: center; color: var(--lime); font-weight: 500; }
+.rhythm-comparison span, .next-invitation span { color: var(--dim); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; }
+.rhythm-comparison p { color: #bdc7bb; font-size: 11px; line-height: 1.55; margin: 8px 0 0; white-space: pre-wrap; }
+.next-invitation { border-top: 1px solid rgba(204, 255, 120, 0.13); display: grid; gap: 6px; margin-top: 14px; padding-top: 13px; }
+.next-invitation strong { color: var(--lime); font-size: 11px; line-height: 1.5; }
+
 .delta-actions {
   margin-top: 34px;
   padding: 0;
@@ -1071,6 +1115,9 @@ button:disabled {
     display: grid;
     grid-template-columns: 1fr;
   }
+
+  .rhythm-comparison { grid-template-columns: 1fr; }
+  .rhythm-comparison > b { justify-self: center; transform: rotate(90deg); }
 
   .attempt-actions .primary-button,
   .attempt-actions .secondary-button {
