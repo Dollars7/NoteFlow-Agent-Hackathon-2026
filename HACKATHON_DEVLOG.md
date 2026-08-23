@@ -90,6 +90,8 @@ All timestamps use America/Phoenix (UTC-07:00 during the contest). This log reco
 - The first deployment (`dpl_2vaiFHR1TsWZLYiTjoTjDeW7CjLi`) failed after running the repository's Cloudflare-oriented `vinext build`, which did not produce Vercel's expected standard Next.js output.
 - Preserved the existing Vinext build and tests, added a separate `next build` command for Vercel, and selected it through `vercel.json`.
 - Verified the standard Next.js 16.2.6 production build locally, including `/`, `/hackathon`, `/demo`, `/account`, and both API routes.
+- The second deployment (`dpl_9Fyqu9yM4XqCsAbmVFBSD4BMSTGD`) compiled the Next.js web app but failed when the root type checker entered `hackathon-agent/agent.ts` without the separately installed Cloud Run dependencies.
+- Kept the deployment boundary clean by excluding `hackathon-agent` from the root web TypeScript project instead of installing backend-only Google packages in the Vercel frontend.
 
 ## Logging rules
 
