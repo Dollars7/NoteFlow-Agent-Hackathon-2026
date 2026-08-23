@@ -289,6 +289,7 @@
 .markdownReport h4 { font-size: 13px; }
 .markdownReport p { line-height: inherit; margin: 0; }
 .markdownReport strong { color: #eef3eb; font-weight: 760; }
+.markdownReport em { color: #dce5d9; }
 .markdownReport code { background: rgba(217, 255, 136, 0.08); border: 1px solid rgba(217, 255, 136, 0.12); border-radius: 4px; color: var(--agent-lime); font-size: 0.9em; padding: 1px 4px; }
 .markdownReport hr { border: 0; border-top: 1px solid var(--agent-line); margin: 8px 0; width: 100%; }
 .markdownReport blockquote { border-left: 2px solid rgba(217, 255, 136, 0.38); color: #aab5aa; margin: 2px 0; padding-left: 12px; }

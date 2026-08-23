@@ -279,6 +279,7 @@ test("defaults to English, keeps Chinese in place, and hands Agent output into p
   assert.match(hackathonDemo, /Generating your learning rhythm/);
   assert.match(hackathonDemo, /Step \$\{visibleProgressStep\} of 4/);
   assert.match(hackathonDemo, /MarkdownReport/);
+  assert.match(hackathonDemo, /<em key=\{index\}>/);
   assert.match(hackathonDemo, /markdownDownloadHref/);
   assert.match(hackathonDemo, /download="noteflow-learning-plan\.md"/);
   assert.match(hackathonDemo, /Download \.md/);
