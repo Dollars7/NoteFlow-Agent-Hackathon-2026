@@ -83,6 +83,14 @@ All timestamps use America/Phoenix (UTC-07:00 during the contest). This log reco
 - Added Vercel import guidance: deploy the repository-root web project only; keep `hackathon-agent` on Cloud Run.
 - Product-direction alignment commit: `b49583e` (`docs: align submission with learning rhythm vision`).
 
+## 2026-08-22 — Independent Vercel frontend deployment
+
+- Imported the standalone `Dollars7/NoteFlow-Agent-Hackathon-2026` repository into the entrant's Vercel team as `note-flow-agent-hackathon-2026`.
+- Configured only the server-side Cloud Run URL and shared bearer value; removed the obsolete detected `NEXT_PUBLIC_*` Agent variables.
+- The first deployment (`dpl_2vaiFHR1TsWZLYiTjoTjDeW7CjLi`) failed after running the repository's Cloudflare-oriented `vinext build`, which did not produce Vercel's expected standard Next.js output.
+- Preserved the existing Vinext build and tests, added a separate `next build` command for Vercel, and selected it through `vercel.json`.
+- Verified the standard Next.js 16.2.6 production build locally, including `/`, `/hackathon`, `/demo`, `/account`, and both API routes.
+
 ## Logging rules
 
 - Add a dated entry for each material feature, deployment, or submission change.
