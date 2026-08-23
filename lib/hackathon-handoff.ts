@@ -76,6 +76,10 @@ export function extractAgentSection(report: string, headings: string[]): string 
   const collected: string[] = [];
   for (const rawLine of lines.slice(start + 1)) {
     const line = rawLine.trim();
+    if (/^---+$/.test(line)) {
+      if (collected.length) break;
+      continue;
+    }
     const match = line.match(headingPattern);
     if (match && knownSections.includes(normalizeHeading(match[1]))) break;
     if (line) collected.push(line.replace(/^[-*]\s+/, ""));

@@ -276,7 +276,14 @@ test("defaults to English, keeps Chinese in place, and hands Agent output into p
   assert.match(hackathonHeader, /体验学习空间/);
   assert.match(hackathonDemo, /Your notes should notice where you get stuck/);
   assert.match(hackathonDemo, /你的笔记应该知道你卡在哪里/);
-  assert.match(hackathonDemo, /Practice the next step/);
+  assert.match(hackathonDemo, /Generating your learning rhythm/);
+  assert.match(hackathonDemo, /Step \$\{visibleProgressStep\} of 4/);
+  assert.match(hackathonDemo, /MarkdownReport/);
+  assert.match(hackathonDemo, /markdownDownloadHref/);
+  assert.match(hackathonDemo, /download="noteflow-learning-plan\.md"/);
+  assert.match(hackathonDemo, /Download \.md/);
+  assert.match(hackathonDemo, /Start learning now/);
+  assert.match(hackathonDemo, /Opens NoteFlow retrieval mode/);
   assert.match(hackathonDemo, /Short \+ frequent/);
   assert.match(hackathonDemo, /Add to calendar/);
   assert.match(hackathonDemo, /Notification\.requestPermission/);

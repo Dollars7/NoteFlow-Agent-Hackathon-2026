@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   extractAgentSection,
   extractAgentText,
@@ -76,6 +76,42 @@ function formatIcsDate(value: Date): string {
   return value.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
 }
 
+function inlineMarkdown(source: string): ReactNode[] {
+  return source.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).filter(Boolean).map((part, index) => {
+    if (part.startsWith("**") && part.endsWith("**")) return <strong key={index}>{part.slice(2, -2)}</strong>;
+    if (part.startsWith("`") && part.endsWith("`")) return <code key={index}>{part.slice(1, -1)}</code>;
+    return <span key={index}>{part}</span>;
+  });
+}
+
+function MarkdownReport({ source, compact = false }: { source: string; compact?: boolean }) {
+  const knownHeading = /^(diagnosis|rhythm plan|next invitation|next retrieval|model mutation|knowledge model update|background work|clarification|诊断|学习节奏|下次邀请|下一次检索|模型更新|知识模型更新|后台工作|澄清问题)$/i;
+
+  return (
+    <div className={`${styles.markdownReport} ${compact ? styles.markdownCompact : ""}`}>
+      {source.split(/\r?\n/).map((rawLine, index) => {
+        const line = rawLine.trim();
+        if (!line) return null;
+        if (/^---+$/.test(line)) return <hr key={index} />;
+        const heading = line.match(/^(#{1,6})\s+(.+)$/);
+        if (heading) {
+          const level = Math.min(3, heading[1].length);
+          if (level === 1) return <h2 key={index}>{inlineMarkdown(heading[2])}</h2>;
+          if (level === 2) return <h3 key={index}>{inlineMarkdown(heading[2])}</h3>;
+          return <h4 key={index}>{inlineMarkdown(heading[2])}</h4>;
+        }
+        if (knownHeading.test(line.replace(/^[*_`]+|[*_`]+$/g, ""))) return <h3 key={index}>{line.replace(/^[*_`]+|[*_`]+$/g, "")}</h3>;
+        const bullet = line.match(/^[-*]\s+(.+)$/);
+        if (bullet) return <div className={styles.markdownBullet} key={index}><i aria-hidden="true" /> <p>{inlineMarkdown(bullet[1])}</p></div>;
+        const ordered = line.match(/^(\d+)\.\s+(.+)$/);
+        if (ordered) return <div className={styles.markdownBullet} key={index}><b>{ordered[1]}</b><p>{inlineMarkdown(ordered[2])}</p></div>;
+        if (line.startsWith("> ")) return <blockquote key={index}>{inlineMarkdown(line.slice(2))}</blockquote>;
+        return <p key={index}>{inlineMarkdown(line)}</p>;
+      })}
+    </div>
+  );
+}
+
 export function HackathonDemo({ connected }: { connected: boolean }) {
   const { locale, t } = useLocale();
   const [goal, setGoal] = useState(samples.en.goal);
@@ -95,8 +131,10 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
   const [rhythmPlan, setRhythmPlan] = useState("");
   const [nextInvitation, setNextInvitation] = useState("");
   const [reminderStatus, setReminderStatus] = useState("");
+  const [progressStep, setProgressStep] = useState(0);
   const previousLocale = useRef<Locale>("en");
   const reminderTimer = useRef<number | null>(null);
+  const progressTimers = useRef<number[]>([]);
 
   const learnerContext = useMemo<LearnerContext>(() => ({
     learningPreferences: learningPreferences.trim(),
@@ -108,6 +146,26 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
     preferredTime,
     reminderOptIn,
   }), [constraints, daysPerWeek, energyWindow, learningPreferences, preferredTime, reminderOptIn, sessionMinutes, studyPattern]);
+  const nextRetrieval = useMemo(
+    () => agentText ? extractNextRetrieval(agentText, locale) : "",
+    [agentText, locale],
+  );
+  const markdownDownloadHref = useMemo(() => {
+    if (!agentText) return "";
+    const markdownDocument = [
+      `# NoteFlow Agent — ${goal.trim()}`,
+      "",
+      `> ${t("Study rhythm", "学习节奏")}: ${sessionMinutes} min · ${daysPerWeek}× / ${t("week", "周")}`,
+      "",
+      agentText.trim(),
+      "",
+    ].join("\n");
+    return `data:text/markdown;charset=utf-8,${encodeURIComponent(markdownDocument)}`;
+  }, [agentText, daysPerWeek, goal, sessionMinutes, t]);
+
+  useEffect(() => () => {
+    progressTimers.current.forEach((timer) => window.clearTimeout(timer));
+  }, []);
 
   useEffect(() => {
     const previous = samples[previousLocale.current];
@@ -139,7 +197,25 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
     return t("Build my learning path", "生成我的学习路径");
   }, [stage, t]);
 
+  function startProgress(action: "plan" | "clarification") {
+    progressTimers.current.forEach((timer) => window.clearTimeout(timer));
+    progressTimers.current = [];
+    const firstStep = action === "clarification" ? 2 : 1;
+    setProgressStep(firstStep);
+    const schedule = action === "clarification"
+      ? [[900, 3]]
+      : [[700, 2], [1_600, 3]];
+    progressTimers.current = schedule.map(([delay, step]) => window.setTimeout(() => setProgressStep(step), delay));
+  }
+
+  function stopProgress(step: number) {
+    progressTimers.current.forEach((timer) => window.clearTimeout(timer));
+    progressTimers.current = [];
+    setProgressStep(step);
+  }
+
   async function runAgent(action: "plan" | "clarification" = "plan") {
+    startProgress(action);
     setStage("running");
     setAgentText("");
     setReminderStatus("");
@@ -159,6 +235,7 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
         );
         setRhythmPlan(preview.rhythm);
         setNextInvitation(preview.invitation);
+        stopProgress(4);
         setStage("complete");
       }, 720);
       return;
@@ -191,13 +268,16 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
       setContinuationToken(payload.continuationToken ?? continuationToken);
       const clarificationQuestion = extractAgentSection(report, ["clarification", "澄清问题"]);
       if (clarificationQuestion) {
+        stopProgress(2);
         setStage("clarifying");
         return;
       }
       setRhythmPlan(extractAgentSection(report, ["rhythm plan", "学习节奏"]));
       setNextInvitation(extractAgentSection(report, ["next invitation", "下次邀请"]));
+      stopProgress(4);
       setStage("complete");
     } catch (error) {
+      stopProgress(0);
       setAgentText(error instanceof Error ? error.message : t(
         "The cloud agent could not be reached.",
         "暂时无法连接云端 Agent。",
@@ -276,6 +356,18 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
     });
     setReminderStatus(t("Browser reminder enabled. Keep the calendar invitation as the durable reminder.", "浏览器提醒已开启；日历邀请可作为关闭页面后的持久提醒。"));
   }
+
+  const traceSteps = [
+    { number: "01", title: t("Ingest", "摄取"), description: t("Goal and messy evidence captured", "已捕获目标和杂乱证据") },
+    { number: "02", title: t("Clarify", "澄清"), description: t("Check decision-changing context", "检查会改变决策的上下文") },
+    { number: "03", title: t("Synthesize", "综合"), description: t("Build concepts, gaps, and prerequisites", "构建概念、缺口和前置关系") },
+    { number: "04", title: t("Mutate", "更新"), description: t("Save the rhythm and next retrieval", "保存学习节奏和下一次检索") },
+  ];
+  const visibleProgressStep = stage === "complete" ? 4 : progressStep;
+  const progressPercent = visibleProgressStep * 25;
+  const progressLabel = visibleProgressStep > 0
+    ? traceSteps[visibleProgressStep - 1].title
+    : t("Ready to begin", "准备开始");
 
   return (
     <>
@@ -413,21 +505,76 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
       <section className={styles.workspace} aria-live="polite">
         <div className={styles.workflowCard}>
           <div className={styles.sectionLabel}>{t("Agent trace", "Agent 运行轨迹")}</div>
+          <div className={`${styles.progressSummary} ${stage === "running" ? styles.progressRunning : ""}`}>
+            <div>
+              <strong>{stage === "running"
+                ? t("Generating your learning rhythm…", "正在生成你的学习节奏…")
+                : stage === "complete"
+                  ? t("Learning rhythm ready", "学习节奏已生成")
+                  : stage === "clarifying"
+                    ? t("One answer is needed", "还需要一个回答")
+                    : t("Ready to generate", "可以开始生成")}</strong>
+              <span>{stage === "running"
+                ? t(`Step ${visibleProgressStep} of 4 · ${progressLabel}`, `第 ${visibleProgressStep}/4 步 · ${progressLabel}`)
+                : stage === "complete"
+                  ? t("4 of 4 steps complete", "4/4 步已完成")
+                  : t("Progress will appear here", "生成进度会显示在这里")}</span>
+            </div>
+            <b>{progressPercent}%</b>
+          </div>
+          <div className={styles.progressTrack} aria-label={t("Agent generation progress", "Agent 生成进度")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPercent} role="progressbar">
+            <span style={{ width: `${progressPercent}%` }} />
+          </div>
           <ol className={styles.steps}>
-            <li className={styles.done}><span>01</span><div><strong>{t("Ingest", "摄取")}</strong><p>{t("Goal and messy evidence captured", "已捕获目标和杂乱证据")}</p></div></li>
-            <li className={stage === "intake" ? styles.waiting : styles.done}><span>02</span><div><strong>{t("Clarify", "澄清")}</strong><p>{t("Ask only for decision-changing context", "只询问会改变决策的上下文")}</p></div></li>
-            <li className={["running", "complete"].includes(stage) ? styles.done : styles.waiting}><span>03</span><div><strong>{t("Synthesize", "综合")}</strong><p>{t("Build concepts, gaps, and prerequisites", "构建概念、缺口和前置关系")}</p></div></li>
-            <li className={stage === "complete" ? styles.done : styles.waiting}><span>04</span><div><strong>{t("Mutate", "更新")}</strong><p>{t("Persist the model and queue deeper work", "持久化模型并排队深度任务")}</p></div></li>
+            {traceSteps.map((step, index) => {
+              const stepNumber = index + 1;
+              const status = stage === "complete" || stepNumber < visibleProgressStep
+                ? "done"
+                : stepNumber === visibleProgressStep
+                  ? "current"
+                  : "waiting";
+              return (
+                <li className={styles[status]} key={step.number} aria-current={status === "current" ? "step" : undefined}>
+                  <span>{step.number}</span>
+                  <div><strong>{step.title}</strong><p>{step.description}</p></div>
+                </li>
+              );
+            })}
           </ol>
         </div>
 
         <div className={styles.outputCard}>
           <div className={styles.outputHeading}>
             <div className={styles.sectionLabel}>{t("Partner response", "伙伴回复")}</div>
-            <span>{stage === "complete" ? t("READY", "已就绪") : stage === "error" ? t("NEEDS ATTENTION", "需要处理") : t("WAITING", "等待中")}</span>
+            <div className={styles.outputTools}>
+              {stage === "complete" && agentText && (
+                <a href={markdownDownloadHref} download="noteflow-learning-plan.md">{t("Download .md", "下载 .md")}</a>
+              )}
+              <span className={stage === "running" ? styles.outputStatusRunning : ""}>{stage === "complete"
+                ? t("READY", "已就绪")
+                : stage === "error"
+                  ? t("NEEDS ATTENTION", "需要处理")
+                  : stage === "running"
+                    ? t("GENERATING", "生成中")
+                    : stage === "clarifying"
+                      ? t("INPUT NEEDED", "等待回答")
+                      : t("READY TO RUN", "等待开始")}</span>
+            </div>
           </div>
-          {agentText ? (
-            <pre>{agentText}</pre>
+          {stage === "running" ? (
+            <div className={styles.generatingOutput}>
+              <span className={styles.generatingIcon} aria-hidden="true" />
+              <div>
+                <strong>{t("The Agent is building your plan", "Agent 正在生成你的计划")}</strong>
+                <p>{t(
+                  `Now working on step ${visibleProgressStep}: ${progressLabel}. The finished report will appear here automatically.`,
+                  `正在处理第 ${visibleProgressStep} 步：${progressLabel}。完成的报告会自动显示在这里。`,
+                )}</p>
+                <div className={styles.generatingBars} aria-hidden="true"><i /><i /><i /></div>
+              </div>
+            </div>
+          ) : agentText ? (
+            <MarkdownReport source={agentText} />
           ) : (
             <div className={styles.emptyOutput}>
               <span aria-hidden="true">↳</span>
@@ -443,11 +590,11 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
                 <span>{t("P0 rhythm created", "P0 学习节奏已生成")}</span>
                 <strong>{sessionMinutes} min · {daysPerWeek}× / {t("week", "周")}</strong>
               </div>
-              <p>{rhythmPlan}</p>
+              <MarkdownReport source={rhythmPlan} compact />
               {nextInvitation && (
                 <div className={styles.invitationLine}>
                   <span>{t("Next invitation", "下次邀请")}</span>
-                  <strong>{nextInvitation}</strong>
+                  <MarkdownReport source={nextInvitation} compact />
                 </div>
               )}
               {reminderOptIn && (
@@ -461,16 +608,21 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
           )}
           {stage === "complete" && agentText && (
             <div className={styles.handoffAction}>
-              <div>
-                <strong>{t("The plan now becomes practice.", "现在把计划变成练习。")}</strong>
-                <span>{t(
-                  "Open the exact next retrieval selected by the Agent. Your goal, evidence, and Agent report move with it.",
-                  "打开 Agent 选择的下一次检索；你的目标、证据和 Agent 报告会一起带入学习空间。",
-                )}</span>
+              <div className={styles.handoffPrompt}>
+                <span className={styles.handoffPromptLabel}>{t("Your first retrieval", "你的第一次检索")}</span>
+                <strong>{t("Ready for one focused learning session?", "准备开始一次专注学习吗？")}</strong>
+                <p>{nextRetrieval}</p>
+                <small>{t(
+                  "Clicking starts NoteFlow learning mode immediately with this one Agent-selected question. Your goal, evidence, and report move with it.",
+                  "点击后会立即进入 NoteFlow 学习模式，并从这个 Agent 选择的问题开始；你的目标、证据和报告会一起带入。",
+                )}</small>
               </div>
-              <button type="button" onClick={practiceNextStep}>
-                {t("Practice the next step", "练习下一步")} <span aria-hidden="true">→</span>
-              </button>
+              <div className={styles.handoffButtonGroup}>
+                <button type="button" onClick={practiceNextStep}>
+                  {t("Start learning now", "现在开始学习")} <span aria-hidden="true">→</span>
+                </button>
+                <small>{t("Opens NoteFlow retrieval mode", "进入 NoteFlow 检索模式")}</small>
+              </div>
             </div>
           )}
         </div>
