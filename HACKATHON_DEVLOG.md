@@ -112,6 +112,17 @@ All timestamps use America/Phoenix (UTC-07:00 during the contest). This log reco
 - Ran a live public P0 smoke test: the planning turn returned a signed continuation, rhythm, next invitation, and retrieval; the feedback continuation was accepted and returned a revised rhythm, invitation, and retrieval.
 - P0 documentation and verification record commit: `bfaa338` (`docs: record adaptive rhythm P0`).
 
+## 2026-08-23 — Judge-facing progress and readable Agent output
+
+- Replaced the ambiguous response `WAITING` state with an explicit generating panel, active status, and a four-stage Agent Trace progress bar: ingest, clarify, synthesize, and mutate. The UI holds at synthesis while the cloud call is pending and marks mutation/100% only after a report returns.
+- Rendered the Agent report, learning rhythm, and next invitation as a safe presentation subset of Markdown, including headings, rules, lists, blockquotes, bold, italics, and inline code.
+- Added a native `noteflow-learning-plan.md` download containing the learning goal, rhythm metadata, and full Agent report.
+- Replaced the unclear **Practice the next step** action with a preview of the exact first retrieval, an explicit **Start learning now** label, and copy explaining that the action opens NoteFlow retrieval mode immediately.
+- Corrected section extraction so Markdown dividers do not leak into the rhythm card, then normalized blockquote, bullet, emphasis, and code markers before an Agent-selected prompt becomes a real NoteFlow card.
+- Passed TypeScript, eight automated tests, the standard Next.js production build, and the Vinext compatibility build. Local browser QA verified generation, formatted report output, the Markdown export payload, and the direct Agent-to-retrieval handoff.
+- Published judge-facing UX commit `b51ff43` (`feat: clarify generation and learning handoff`). A public Vercel smoke run advanced from 25% to 75% to 100%, returned a formatted Gemini report, persisted model version `8QBN2tHzgwmvjmNn79UX`, and exposed the `.md` export plus first-retrieval preview.
+- The live smoke run revealed remaining single-asterisk emphasis and prompt markers; fixed them in follow-up commit `76fc5b3` (`fix: normalize markdown in retrieval prompts`). Vercel reported the final deployment successful on the stable public domain.
+
 ## Logging rules
 
 - Add a dated entry for each material feature, deployment, or submission change.
