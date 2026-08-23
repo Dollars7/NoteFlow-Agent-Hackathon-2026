@@ -110,6 +110,7 @@ All timestamps use America/Phoenix (UTC-07:00 during the contest). This log reco
 - Deployed Google Agent revision `noteflow-agent-00003-d6g` to 100% of Cloud Run traffic and confirmed both the Vercel-configured legacy service URL and the current Cloud Run URL return HTTP 200.
 - Published P0 web commit `f9b2672` to the standalone repository. The stable Vercel domain served the new onboarding controls.
 - Ran a live public P0 smoke test: the planning turn returned a signed continuation, rhythm, next invitation, and retrieval; the feedback continuation was accepted and returned a revised rhythm, invitation, and retrieval.
+- P0 documentation and verification record commit: `bfaa338` (`docs: record adaptive rhythm P0`).
 
 ## Logging rules
 
