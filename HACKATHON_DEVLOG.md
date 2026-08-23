@@ -99,6 +99,18 @@ All timestamps use America/Phoenix (UTC-07:00 during the contest). This log reco
 - Verified English-first rendering and the in-place Chinese interface switch on the deployed practice flow. The generated retrieval remained in the language selected when that Agent run began, as intended.
 - Verified Vercel deployment record commit: `46bd09c` (`docs: record verified Vercel deployment`).
 
+## 2026-08-22 — Adaptive learning-rhythm P0
+
+- Replaced the one-shot planning form with learner-controlled context for learning preferences, constraints, short/fixed/energy-aligned pattern, session length, weekly cadence, energy window, invitation time, and reminder opt-in. The product explicitly treats this as self-description, not a personality or medical diagnosis.
+- Extended the Google ADK persistence tool so Firestore versions contain both the knowledge model and a sustainable rhythm with load rule, preferred window, next invitation, reason, and notification mode.
+- Added HMAC-signed browser continuation tokens. A public judge can answer a real Agent clarification or return retrieval feedback to the same high-entropy ADK session without receiving the Cloud Run shared secret.
+- Returned real NoteFlow evidence—attempt outcome, scheduler feedback, hint depth, reaction time, and memory before/after—to Gemini. The practice page now shows the rhythm before and after the Agent mutation plus the revised next invitation.
+- Added opt-in calendar invitations with a reminder alarm and lightweight browser reminder activation. Documented that production push or email delivery after every tab closes remains post-P0 work.
+- Passed root and Agent TypeScript checks, the standard Next.js production build, the Vinext hosting build, and eight automated tests.
+- Deployed Google Agent revision `noteflow-agent-00003-d6g` to 100% of Cloud Run traffic and confirmed both the Vercel-configured legacy service URL and the current Cloud Run URL return HTTP 200.
+- Published P0 web commit `f9b2672` to the standalone repository. The stable Vercel domain served the new onboarding controls.
+- Ran a live public P0 smoke test: the planning turn returned a signed continuation, rhythm, next invitation, and retrieval; the feedback continuation was accepted and returned a revised rhythm, invitation, and retrieval.
+
 ## Logging rules
 
 - Add a dated entry for each material feature, deployment, or submission change.

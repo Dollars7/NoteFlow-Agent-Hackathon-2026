@@ -61,24 +61,26 @@ The original Flow Engine remains responsible for **what to retrieve now**. The A
 
 - default-English public experience with an in-place Chinese switch;
 - no-account judging and guest-practice path;
-- goal and unstructured-evidence intake;
+- goal, unstructured evidence, self-described learning preferences, constraints, session length, weekly cadence, energy window, and invitation-time intake;
+- Agent-generated sustainable rhythm and next invitation persisted with the knowledge model in Firestore;
+- a signed continuation session for a real decision-changing clarification when one is necessary;
 - Gemini 3.5 Flash reasoning through Google ADK;
 - Firestore current-model mutation plus immutable versions;
 - Pub/Sub asynchronous analysis delivered to a private Cloud Run worker;
 - direct handoff from an Agent-selected retrieval prompt into the existing NoteFlow practice flow;
+- actual retrieval outcome, hint depth, reaction time, and memory change returned to the same Google Agent session;
+- visible before-and-after rhythm changes plus the revised next invitation;
+- opt-in downloadable calendar invitation and browser reminder activation;
 - transparent preview labeling when the live Agent connection is absent.
 
-### Required next to deliver the intended product
+### Required after P0
 
-- learner-context onboarding for preferences, constraints, availability, and self-reported energy windows;
-- an Agent-generated clarification turn instead of only a prewritten optional question;
-- a persisted rhythm and schedule model;
-- opt-in notification delivery;
-- practice outcomes sent back to the Google Agent;
-- visible before-and-after plan changes;
+- durable server push or email reminders that still arrive after every NoteFlow tab is closed;
+- account-linked rhythm continuity across devices (the no-account judge handoff remains local to one browser);
+- longitudinal adaptation across several completed sessions rather than one immediate feedback turn;
 - completed background analysis reflected in the learner's next session.
 
-Until these items are implemented, the current build demonstrates the Agent infrastructure and the first Agent-to-practice handoff, not the complete adaptive learning-rhythm promise.
+The current build completes the P0 loop from learner context to rhythm, invitation, retrieval, feedback, and a visibly revised rhythm. Calendar reminders survive the browser through the learner's calendar; browser notifications are a lightweight opt-in companion, not a claim of production push delivery.
 
 ## Current working judge path
 
@@ -86,11 +88,12 @@ No account is required.
 
 1. Open the [hosted demo](https://note-flow-agent-hackathon-2026.vercel.app) (the root page and `/hackathon` show the same judge flow).
 2. Keep English or switch the same interface to Chinese.
-3. Enter a learning goal and unstructured learning evidence.
-4. Run NoteFlow Agent.
-5. Review the Agent response and auditable model action.
+3. Enter a learning goal, source evidence, learning preferences, constraints, rhythm, energy window, and preferred invitation time.
+4. Run NoteFlow Agent and review the persisted rhythm, next invitation, retrieval choice, and auditable model action.
+5. Optionally add the invitation to a calendar or enable the browser reminder.
 6. Select **Practice the next step**.
 7. NoteFlow opens `/demo` and starts the Agent-selected retrieval card.
+8. Complete the retrieval feedback. The same Google Agent session receives the evidence and shows the rhythm before and after its revision.
 
 `/account` is an optional personal-account route. Supabase is not required for judging or guest practice.
 
@@ -115,7 +118,7 @@ The Google Agent stack is running in entrant-owned billing project `project-0069
 - background status: `complete`
 - completion time: `2026-08-22T17:43:24.168Z`
 
-These identifiers prove the current evidence-to-model-to-background-job path. They do not claim that the planned notification and feedback loop is already implemented.
+These identifiers prove the evidence-to-model-to-background-job path. The later P0 deployment additionally verified a live planning turn followed by an authenticated feedback continuation; both returned a persisted rhythm, next invitation, and next retrieval. It does not claim production push-notification delivery.
 
 The independent Vercel production deployment was also tested end to end on August 22, 2026. A public judge run returned `READY`, persisted immutable Firestore model version `8DopLuEwDZ4SVnk4eqyn`, and handed the Agent-selected retrieval prompt into `/demo?source=agent`.
 
@@ -158,6 +161,8 @@ flowchart LR
     Worker --> Firestore
     API --> Web
     Web --> Practice["NoteFlow retrieval in /demo"]
+    Practice -->|"attempt + memory feedback"| Proxy
+    Proxy -->|"signed session continuation"| API
 ```
 
 Target experience extension:

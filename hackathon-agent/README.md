@@ -17,23 +17,23 @@ The implemented Agent currently:
 - uses Gemini 3.5 Flash through Vertex AI;
 - synthesizes a learner goal, unstructured evidence, and optional clarification;
 - infers concepts, gaps, and prerequisite relationships;
+- turns learner-controlled preferences, constraints, cadence, energy window, and invitation time into a sustainable rhythm;
 - selects one high-value retrieval prompt;
-- persists the current learning model and an immutable version in Firestore;
+- persists the current learning model, rhythm, next invitation, and an immutable version in Firestore;
+- accepts completed NoteFlow retrieval evidence through a signed continuation session;
+- revises the rhythm and knowledge path from attempt outcome, hint depth, reaction time, memory feedback, and before/after memory state;
 - queues safe-digest background analysis through Pub/Sub when useful;
 - lets a separate private Cloud Run worker call Gemini and store completed analysis.
 
-The current backend does **not yet** schedule notifications or receive completed NoteFlow practice feedback.
+The web experience can produce an opt-in calendar invitation and a lightweight browser reminder. The backend does **not yet** operate a durable push or email notification channel after all browser tabs are closed.
 
 ## Intended next responsibility
 
-To deliver the aligned product vision, the Agent will additionally need to:
+After P0, the Agent will additionally need to:
 
-- maintain learner-controlled preferences, constraints, availability, and self-described energy windows;
-- ask a real decision-changing clarification turn;
-- create and version a sustainable learning-rhythm plan;
-- schedule opt-in invitations without generating overdue tasks;
-- accept retrieval attempts and memory feedback from NoteFlow;
-- revise timing, session load, and knowledge scope from that evidence;
+- schedule durable opt-in push or email invitations without generating overdue tasks;
+- preserve one learner's rhythm across devices through an account-linked identity;
+- adapt from several sessions of evidence rather than only the immediate completed retrieval;
 - surface background results in a future session.
 
 These are documented product requirements, not claims about the current deployment.
