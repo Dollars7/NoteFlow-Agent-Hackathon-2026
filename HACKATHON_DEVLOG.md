@@ -134,6 +134,13 @@ All timestamps use America/Phoenix (UTC-07:00 during the contest). This log reco
 - Deployed Google Agent revision `noteflow-agent-00004-4hh` to 100% of Cloud Run traffic. Confirmed both the Vercel-configured service domain and the current Cloud Run domain return HTTP 200.
 - Ran a public end-to-end planning smoke test through the stable Vercel domain. The signed continuation was returned, `persist_learning_model` executed, and the Agent produced a structured plan with a continuous priority value, `15–25` minute session range, `5–7` invitation range, short-frequent pattern, and three evidence-grounded themes.
 
+## 2026-08-25 — Cloud Agent 503 reliability correction
+
+- Investigated a real public planning failure reported by the learner. Cloud Run logs showed revision `noteflow-agent-00004-4hh` reached `1041 MiB`, exceeded its `1 GiB` limit, and was terminated while `/run` was active; Vercel correctly surfaced the resulting upstream HTTP 503.
+- Kept the existing Vercel and server-only proxy boundary unchanged. Updated only the Cloud Run runtime envelope: `2 GiB` memory, concurrency `1` per instance, and a maximum of `2` instances so simultaneous judge runs cannot share and exhaust one Agent process.
+- Deployed revision `noteflow-agent-00005-l5v` and confirmed it serves 100% of traffic with the intended settings.
+- Reproduced the original risk condition with two simultaneous public planning requests through the stable Vercel domain. Both returned HTTP 200, Agent events, and signed continuations; neither returned an error or 503.
+
 ## Logging rules
 
 - Add a dated entry for each material feature, deployment, or submission change.
