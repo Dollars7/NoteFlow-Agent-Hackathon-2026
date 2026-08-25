@@ -6,6 +6,7 @@ The hackathon entry separates the pre-existing web foundation from the contest-p
 flowchart LR
     Learner["Learner · messy notes + retrieval feedback"]
     Web["NoteFlow /hackathon UI<br/>public judge experience"]
+    Review["Generated plan review<br/>editable ranges + explicit start"]
     Demo["NoteFlow /demo<br/>full guest learning workspace"]
     Proxy["Same-origin server proxy<br/>rate-limited + server-only token"]
     API["ADK API server<br/>Cloud Run"]
@@ -17,7 +18,8 @@ flowchart LR
     Worker["Background analysis worker<br/>Cloud Run"]
 
     Learner --> Web
-    Web --> Demo
+    Web --> Review
+    Review -->|"Start this session"| Demo
     Web --> Proxy
     Proxy -->|"authenticated ADK session + /run"| API
     API --> Agent
@@ -28,7 +30,7 @@ flowchart LR
     PubSub --> Worker
     Worker --> Firestore
     Firestore -->|"next session context"| Agent
-    Agent -->|"one diagnosis + one retrieval move"| Web
+    Agent -->|"plan settings + rhythm + one retrieval move"| Web
     Demo -->|"attempt outcome + memory feedback"| Proxy
     Proxy -->|"HMAC-signed session continuation"| API
 ```
@@ -41,7 +43,9 @@ flowchart LR
 - Pub/Sub messages contain only a safe source digest, not raw private notes.
 - Each model mutation writes a current document and a separate immutable version.
 - The public browser receives only an HMAC-signed continuation token, never the Cloud Run shared secret; it can continue only its high-entropy judge session.
-- Learner context and rhythm are versioned with the knowledge model. Retrieval feedback re-enters the same ADK session and produces a visible before-and-after rhythm change.
+- Learner context, reviewable plan settings, and rhythm are versioned with the knowledge model. Retrieval feedback re-enters the same ADK session and produces a visible before-and-after rhythm change.
+- The Agent handoff does not start practice. It opens an editable plan review; the learner explicitly starts the session after confirming the generated ranges.
+- Current-session deferral and future-pool skipping are separate scheduler actions. A one-card session cannot move its card later; skipping it ends that session and preserves the card for future scheduling.
 - The interface labels deterministic preview output and never presents it as Gemini output.
 - The public `/demo` route exposes the pre-existing retrieval-first learning workspace without requiring a judge account; its data remains on that browser.
 
@@ -53,4 +57,4 @@ flowchart LR
 | Google Agent Framework | Google ADK for TypeScript |
 | Google Cloud infrastructure | Cloud Run, Firestore, and Pub/Sub |
 | Beyond a chat loop | Tool-driven knowledge mutation and asynchronous background analysis |
-| Captures feedback | Signed clarification and retrieval-feedback continuations, persistent model/rhythm versions, and visible before/after changes |
+| Captures feedback | Signed clarification and retrieval-feedback continuations, persistent model/plan/rhythm versions, and visible before/after changes |

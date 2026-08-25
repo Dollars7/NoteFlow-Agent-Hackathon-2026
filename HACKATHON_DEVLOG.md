@@ -123,6 +123,17 @@ All timestamps use America/Phoenix (UTC-07:00 during the contest). This log reco
 - Published judge-facing UX commit `b51ff43` (`feat: clarify generation and learning handoff`). A public Vercel smoke run advanced from 25% to 75% to 100%, returned a formatted Gemini report, persisted model version `8QBN2tHzgwmvjmNn79UX`, and exposed the `.md` export plus first-retrieval preview.
 - The live smoke run revealed remaining single-asterisk emphasis and prompt markers; fixed them in follow-up commit `76fc5b3` (`fix: normalize markdown in retrieval prompts`). Vercel reported the final deployment successful on the stable public domain.
 
+## 2026-08-25 — Natural-language plan review and explicit Session controls
+
+- Replaced the intake's fixed quota fields with natural-language goal, evidence, learning preferences, and real constraints. The Google Agent now persists a reviewable `planSettings` object containing the inferred goal, optional role baseline, themes, continuous steady-to-sprint priority, session-duration range, invitation-frequency range, study pattern, energy window, preferred time, reminder preference, and evidence-grounded rationale.
+- Added a real plan-review boundary between Agent generation and learning. **Review plan** opens `/demo` without starting retrieval; the learner can change generated ranges and then explicitly select **Start this session**.
+- Kept both duration and invitation frequency as guidance rather than learning limits. The learner can voluntarily start another Session at any time.
+- Split the ambiguous Skip control into two scheduler actions. **Later this session · move to queue end** rotates only when another card exists. **Skip for now · return to learning pool** removes the card from the current Session; if it is the only card, the Session ends and the card remains available for future scheduling.
+- Passed root and Agent TypeScript checks, eight automated tests, the standard Next.js production build, and the Vinext compatibility build.
+- Published implementation commit `9d118d8` (`feat: review generated plans before learning`) to the standalone repository `main`; Vercel reported the corresponding production deployment successful.
+- Deployed Google Agent revision `noteflow-agent-00004-4hh` to 100% of Cloud Run traffic. Confirmed both the Vercel-configured service domain and the current Cloud Run domain return HTTP 200.
+- Ran a public end-to-end planning smoke test through the stable Vercel domain. The signed continuation was returned, `persist_learning_model` executed, and the Agent produced a structured plan with a continuous priority value, `15–25` minute session range, `5–7` invitation range, short-frequent pattern, and three evidence-grounded themes.
+
 ## Logging rules
 
 - Add a dated entry for each material feature, deployment, or submission change.

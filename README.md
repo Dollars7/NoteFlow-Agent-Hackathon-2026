@@ -14,14 +14,14 @@ It is not meant to be a pasted-notes report generator. The Agent should adapt th
 
 ## Intended product loop
 
-1. The learner defines a goal and provides self-described preferences, habits, constraints, available time, and daily energy patterns.
+1. The learner describes a goal, source evidence, learning preferences, and real constraints in their own words.
 2. The Agent asks only the clarifying questions that would change the plan.
-3. The Agent creates a sustainable rhythm—for example, short frequent sessions, a fixed daily window, or sessions aligned with the learner's reported high-energy periods.
-4. A notification invites the learner to begin; it does not create an overdue task.
-5. NoteFlow starts a retrieval session and selects the next knowledge object from memory evidence and goal relevance.
-6. The learner's attempt, stuck point, skip, and memory feedback return to the Agent.
-7. The Agent revises timing, session load, knowledge scope, and the next invitation.
-8. Longer analysis can continue asynchronously and update the future rhythm after the learner leaves.
+3. The Agent infers a reviewable draft: goal, optional role baseline, themes, a continuous steady-to-sprint priority, session-duration range, invitation-frequency range, study pattern, energy window, and reminder preference.
+4. The learner reviews or changes those settings, then explicitly starts the session. The ranges guide priority and invitations; they never limit voluntary learning.
+5. A notification invites the learner to begin; it does not create an overdue task.
+6. NoteFlow starts a retrieval session and selects the next knowledge object from memory evidence and goal relevance.
+7. The learner's attempt, stuck point, skip, and memory feedback return to the Agent.
+8. The Agent revises timing, session load, knowledge scope, and the next invitation. Longer analysis can continue asynchronously after the learner leaves.
 
 ```text
 Goal + personal learning context
@@ -61,13 +61,16 @@ The original Flow Engine remains responsible for **what to retrieve now**. The A
 
 - default-English public experience with an in-place Chinese switch;
 - no-account judging and guest-practice path;
-- goal, unstructured evidence, self-described learning preferences, constraints, session length, weekly cadence, energy window, and invitation-time intake;
-- Agent-generated sustainable rhythm and next invitation persisted with the knowledge model in Firestore;
+- natural-language goal, unstructured evidence, self-described learning preferences, and real-constraint intake without requiring fixed quotas first;
+- Agent-generated, learner-editable plan settings: inferred goal, optional role baseline, themes, continuous steady-to-sprint priority, session-duration range, invitation-frequency range, study pattern, energy window, and reminder preference;
+- an explicit plan-review boundary before the learner starts the Agent-selected retrieval;
+- Agent-generated sustainable rhythm, plan settings, and next invitation persisted with the knowledge model in Firestore;
 - a signed continuation session for a real decision-changing clarification when one is necessary;
 - Gemini 3.5 Flash reasoning through Google ADK;
 - Firestore current-model mutation plus immutable versions;
 - Pub/Sub asynchronous analysis delivered to a private Cloud Run worker;
 - direct handoff from an Agent-selected retrieval prompt into the existing NoteFlow practice flow;
+- two explicit card-defer actions: move to the end of the current session, or skip for now and return to the future learning pool;
 - actual retrieval outcome, hint depth, reaction time, and memory change returned to the same Google Agent session;
 - visible before-and-after rhythm changes plus the revised next invitation;
 - opt-in downloadable calendar invitation and browser reminder activation;
@@ -88,12 +91,14 @@ No account is required.
 
 1. Open the [hosted demo](https://note-flow-agent-hackathon-2026.vercel.app) (the root page and `/hackathon` show the same judge flow).
 2. Keep English or switch the same interface to Chinese.
-3. Enter a learning goal, source evidence, learning preferences, constraints, rhythm, energy window, and preferred invitation time.
-4. Run NoteFlow Agent and review the persisted rhythm, next invitation, retrieval choice, and auditable model action.
+3. Describe the learning goal, source evidence, learning preferences, and real constraints in natural language.
+4. Run NoteFlow Agent and review the persisted rhythm, next invitation, first-retrieval preview, and auditable model action.
 5. Optionally add the invitation to a calendar or enable the browser reminder.
-6. Select **Practice the next step**.
-7. NoteFlow opens `/demo` and starts the Agent-selected retrieval card.
-8. Complete the retrieval feedback. The same Google Agent session receives the evidence and shows the rhythm before and after its revision.
+6. Select **Review plan**. NoteFlow opens `/demo` without starting a learning session.
+7. Review or change the generated priority, duration and invitation ranges, study pattern, energy window, goal, and optional role baseline.
+8. Select **Start this session** to begin the Agent-selected retrieval card.
+9. During practice, **Later this session · move to queue end** rotates a card only when another card exists; **Skip for now · return to learning pool** removes it from this session. With one card, Skip ends the session and returns the card to the future pool.
+10. Complete the retrieval feedback. The same Google Agent session receives the evidence and shows the rhythm before and after its revision.
 
 `/account` is an optional personal-account route. Supabase is not required for judging or guest practice.
 
