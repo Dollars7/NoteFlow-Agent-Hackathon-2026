@@ -46,6 +46,22 @@ const rhythmPlanSchema = z.object({
   notificationMode: z.enum(['calendar', 'browser', 'in-app', 'off']),
 });
 
+const planSettingsSchema = z.object({
+  goalTitle: z.string().min(1).describe('A concise goal inferred from the learner language.'),
+  roleBaseline: z.string().describe('An inferred role or exam baseline, or an empty string when none is supported.'),
+  themes: z.array(z.string().min(1)).min(1).max(8).describe('Concrete learning themes inferred from the evidence.'),
+  paceBias: z.number().int().min(0).max(100).describe('Continuous priority bias: 0 is retention-first steady progress; 100 is deadline-first sprint.'),
+  sessionMinutesMin: z.number().int().min(5).max(90),
+  sessionMinutesMax: z.number().int().min(5).max(90),
+  invitationsPerWeekMin: z.number().int().min(1).max(14),
+  invitationsPerWeekMax: z.number().int().min(1).max(14),
+  studyPattern: z.enum(['short-frequent', 'fixed-daily', 'energy-aligned']),
+  energyWindow: z.enum(['morning', 'midday', 'evening', 'variable']),
+  preferredTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+  reminderOptIn: z.boolean(),
+  rationale: z.string().min(1).describe('A concise, evidence-grounded explanation of the inferred settings.'),
+});
+
 const persistLearningModel = new FunctionTool({
   name: 'persist_learning_model',
   description:
@@ -58,6 +74,7 @@ const persistLearningModel = new FunctionTool({
     relationships: z.array(relationshipSchema).max(30),
     learnerContext: learnerContextSchema,
     rhythmPlan: rhythmPlanSchema,
+    planSettings: planSettingsSchema,
     nextRetrievalPrompt: z.string().min(1),
     mutationSummary: z.string().min(1),
   }),
@@ -148,10 +165,10 @@ Your job is to lead the learner from messy notes and retrieval evidence to exact
 Operating contract:
 1. Identify the learner ID, goal, evidence, and learner-controlled context in the request. Never diagnose personality, psychology, neurology, or medical conditions.
 2. If essential decision-changing context is genuinely absent, return only a CLARIFICATION section containing exactly one concise question and stop. Do not ask for information that would not change the rhythm or retrieval path.
-3. Otherwise create a sustainable rhythm before selecting content. Respect the requested pattern, energy window, available days, session length, constraints, and reminder opt-in. A missed invitation never becomes overdue work.
+3. Otherwise infer an adjustable plan from the learner's natural language before selecting content. Persist planSettings with: a continuous pace bias between steady and sprint, a flexible session-duration range, an invitation-frequency range, pattern, energy window, optional role baseline, and inferred themes. Ranges guide invitations and session stopping points; they never cap how often the learner may voluntarily study. Treat numeric learnerContext fields as safe fallbacks when the natural language does not support a more specific inference. A missed invitation never becomes overdue work.
 4. Infer concepts, gaps, and prerequisite relationships. Separate direct evidence from inference.
 5. Choose exactly one next retrieval prompt that requires an attempt, not recognition.
-6. Call persist_learning_model whenever you create or revise either the knowledge model or learning rhythm. Include learnerContext and rhythmPlan. Never claim persistence unless the tool reports status "persisted".
+6. Call persist_learning_model whenever you create or revise either the knowledge model or learning rhythm. Include learnerContext, rhythmPlan, and planSettings. Ensure each maximum is greater than or equal to its minimum. Never claim persistence unless the tool reports status "persisted".
 7. When retrieval feedback arrives, compare the prior rhythm with the new evidence, revise only what the evidence supports, and explain the before-to-after change.
 8. Call queue_deep_analysis only when useful work can continue asynchronously. Never claim a job is queued unless the tool reports status "queued".
 9. Keep private source material out of Pub/Sub; send only a safe digest.

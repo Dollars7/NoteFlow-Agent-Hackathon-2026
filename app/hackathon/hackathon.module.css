@@ -198,6 +198,7 @@
 .contextHeading > span { color: var(--agent-lime); font-size: 10px; font-weight: 780; letter-spacing: 0.11em; text-transform: uppercase; }
 .contextHeading small { color: #6f7970; font-size: 9px; }
 .contextGrid { display: grid; gap: 0 9px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.inferenceNote { border-top: 1px solid rgba(217, 255, 136, 0.1); color: #7f8980; font-size: 9px; line-height: 1.6; margin: 14px 0 0; padding-top: 12px; }
 .reminderChoice { align-items: center; color: #aab3aa; cursor: pointer; display: flex; font-size: 10px; gap: 9px; margin-top: 15px; }
 .reminderChoice input { accent-color: var(--agent-lime); height: 15px; width: 15px; }
 .clarification {

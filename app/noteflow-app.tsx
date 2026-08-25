@@ -158,6 +158,34 @@ function SkillStateView({
   );
 }
 
+function AgentPlanPreview({ handoff }: { handoff: HackathonHandoff }) {
+  const { t } = useLocale();
+  const themes = handoff.generatedPlan?.themes ?? [];
+
+  return (
+    <section className="skill-state-card agent-plan-preview">
+      <div className="state-heading">
+        <div>
+          <p className="eyebrow">{t("After you press Start", "点击开始之后")}</p>
+          <h2>{t("First retrieval ready", "第一次检索已准备好")}</h2>
+        </div>
+        <span className="local-pill"><i /> {t("Not started yet", "尚未开始")}</span>
+      </div>
+      <div className="queued-retrieval">
+        <span>{t("Agent-selected", "Agent 已选择")}</span>
+        <strong>{handoff.title}</strong>
+        <p>{handoff.nextRetrievalPrompt}</p>
+      </div>
+      {themes.length > 0 && (
+        <div className="preview-themes">
+          <span>{t("Generated themes", "生成的主题")}</span>
+          <div>{themes.map((theme) => <i key={theme}>{theme}</i>)}</div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function buildPrerequisiteCard(source: NoteCard, locale: Locale): NoteCard {
   const concept = source.hintKeywords[0] ?? source.title;
 
@@ -286,12 +314,25 @@ export default function NoteFlowApp({
 
   useEffect(() => {
     const applyStored = (parsed: StoredMemory) => {
-      setGoalProfile(
-        parsed.goalProfile ?? {
-          ...defaultGoalProfile,
-          baseGoal: parsed.goal ?? defaultGoalProfile.baseGoal,
-        },
-      );
+      const storedProfile = parsed.goalProfile as (Partial<GoalProfile> & { mode?: "steady" | "sprint" }) | undefined;
+      setGoalProfile({
+        ...defaultGoalProfile,
+        ...storedProfile,
+        baseGoal: storedProfile?.baseGoal ?? parsed.goal ?? defaultGoalProfile.baseGoal,
+        roleBaseline: storedProfile?.roleBaseline ?? defaultGoalProfile.roleBaseline,
+        themes: storedProfile?.themes ?? defaultGoalProfile.themes,
+        paceBias: storedProfile?.paceBias ?? (storedProfile?.mode === "sprint" ? 78 : 25),
+        sessionMinutesMin: storedProfile?.sessionMinutesMin ?? defaultGoalProfile.sessionMinutesMin,
+        sessionMinutesMax: storedProfile?.sessionMinutesMax ?? defaultGoalProfile.sessionMinutesMax,
+        invitationsPerWeekMin: storedProfile?.invitationsPerWeekMin ?? defaultGoalProfile.invitationsPerWeekMin,
+        invitationsPerWeekMax: storedProfile?.invitationsPerWeekMax ?? defaultGoalProfile.invitationsPerWeekMax,
+        studyPattern: storedProfile?.studyPattern ?? defaultGoalProfile.studyPattern,
+        energyWindow: storedProfile?.energyWindow ?? defaultGoalProfile.energyWindow,
+        preferredTime: storedProfile?.preferredTime ?? defaultGoalProfile.preferredTime,
+        reminderOptIn: storedProfile?.reminderOptIn ?? defaultGoalProfile.reminderOptIn,
+        sprintDeadline: storedProfile?.sprintDeadline ?? "",
+        focusSkillIds: storedProfile?.focusSkillIds ?? [],
+      });
       setSkills(parsed.skills ?? initialSkills);
       setCardMemory({
         ...createInitialCardMemory([...noteCards, ...(parsed.generatedCards ?? [])]),
@@ -413,7 +454,24 @@ export default function NoteFlowApp({
       uncertainty: 0.82,
     };
 
-    setGoalProfile((profile) => ({ ...profile, title: agentHandoff.goal }));
+    const generatedPlan = agentHandoff.generatedPlan;
+    setGoalProfile((profile) => ({
+      ...profile,
+      title: generatedPlan?.goalTitle || agentHandoff.goal,
+      roleBaseline: generatedPlan?.roleBaseline ?? "",
+      themes: generatedPlan?.themes ?? [agentHandoff.title],
+      paceBias: generatedPlan?.paceBias ?? profile.paceBias,
+      sessionMinutesMin: generatedPlan?.sessionMinutesMin ?? profile.sessionMinutesMin,
+      sessionMinutesMax: generatedPlan?.sessionMinutesMax ?? profile.sessionMinutesMax,
+      invitationsPerWeekMin: generatedPlan?.invitationsPerWeekMin ?? profile.invitationsPerWeekMin,
+      invitationsPerWeekMax: generatedPlan?.invitationsPerWeekMax ?? profile.invitationsPerWeekMax,
+      studyPattern: generatedPlan?.studyPattern ?? profile.studyPattern,
+      energyWindow: generatedPlan?.energyWindow ?? profile.energyWindow,
+      preferredTime: generatedPlan?.preferredTime ?? profile.preferredTime,
+      reminderOptIn: generatedPlan?.reminderOptIn ?? profile.reminderOptIn,
+      baseGoal: /google/i.test(generatedPlan?.roleBaseline ?? "") ? "google-l4" : profile.baseGoal,
+      focusSkillIds: [],
+    }));
     setGeneratedCards((cards) => cards.some((card) => card.id === launchCard.id) ? cards : [...cards, launchCard]);
     setCardMemory((memory) => ({
       ...memory,
@@ -426,15 +484,14 @@ export default function NoteFlowApp({
     }));
     setDeletedCardIds((ids) => ids.filter((id) => id !== launchCard.id));
     setSelectedNoteId(launchCard.id);
-    setSessionQueue([launchCard.id]);
+    setSessionQueue([]);
     setWorkspaceView("learn");
     setHintDepth(0);
     setReactionMs(0);
     setAttemptOutcome(null);
     setMemoryDelta(null);
     setGapSentence("");
-    attemptStartedAt.current = performance.now();
-    setPhase("attempt");
+    setPhase("pre");
   }, [agentHandoff, hasRestored]);
 
   const clearRecording = () => {
@@ -461,7 +518,9 @@ export default function NoteFlowApp({
   };
 
   const beginSession = () => {
-    const queue = rankCards(allCards, goalProfile, skills, cardMemory).map((card) => card.id);
+    const queue = agentHandoff && allCards.some((card) => card.id === agentHandoff.id)
+      ? [agentHandoff.id]
+      : rankCards(allCards, goalProfile, skills, cardMemory).map((card) => card.id);
     if (queue.length === 0) return;
     setSessionQueue(queue);
     window.requestAnimationFrame(startAttempt);
@@ -483,12 +542,25 @@ export default function NoteFlowApp({
     window.requestAnimationFrame(startAttempt);
   };
 
+  const moveCurrentCardToEnd = () => {
+    if (!currentCard || sessionQueue.length <= 1) return;
+    setSessionQueue((queue) => [...queue.slice(1), queue[0]]);
+    clearRecording();
+    window.requestAnimationFrame(startAttempt);
+  };
+
   const skipCurrentCard = () => {
     if (!currentCard) return;
     setCardMemory((memory) => recordSilentSkip(memory, currentCard.id));
-    setSessionQueue((queue) => (queue.length > 1 ? [...queue.slice(1), queue[0]] : queue));
     clearRecording();
-    attemptStartedAt.current = performance.now();
+    const remaining = sessionQueue.slice(1);
+    if (remaining.length === 0) {
+      setSessionQueue([]);
+      setPhase("post");
+      return;
+    }
+    setSessionQueue(remaining);
+    window.requestAnimationFrame(startAttempt);
   };
 
   const startRecording = async () => {
@@ -935,21 +1007,32 @@ This is not a debt. It has returned to the scheduling pool as an independent car
       {phase === "pre" && workspaceView === "learn" && (
         <section className="pre-session">
           <div className="pre-copy">
-            <p className="eyebrow">{t("System handles the decision. You handle retrieval.", "系统负责决策，你负责检索。")}</p>
-            <h1>{t("Do not plan.", "不用计划。")}<br />{t("When you are ready, do only the card in front of you.", "准备好以后，只做眼前这一张。")}</h1>
+            <p className="eyebrow">{agentHandoff
+              ? t("Plan ready · review before the session", "计划已生成 · Session 前先确认")
+              : t("System handles the decision. You handle retrieval.", "系统负责决策，你负责检索。")}</p>
+            <h1>{agentHandoff
+              ? <>{t("The Agent proposed the structure.", "Agent 已经生成结构。")}<br />{t("You choose when learning starts.", "由你决定何时开始学习。")}</>
+              : <>{t("Do not plan.", "不用计划。")}<br />{t("When you are ready, do only the card in front of you.", "准备好以后，只做眼前这一张。")}</>}</h1>
             <p>
-              {t(
-                "NoteFlow does not show to-do lists, debts, or completion rates. Cards you miss return naturally to the scheduling pool and compete for the next retrieval opportunity like every other piece of knowledge.",
-                "NoteFlow 不展示待办、欠账或完成率。没做到的卡会自然回到调度池，和所有知识一样重新竞争下一次检索机会。",
-              )}
+              {agentHandoff
+                ? t(
+                    "Adjust the generated ranges if needed. They guide priority, invitations, and a suggested stopping point—not how often you are allowed to learn.",
+                    "如有需要，可以调整 Agent 生成的范围。它们只指导优先级、邀请和建议停止点，不限制你可以学习多少次。",
+                  )
+                : t(
+                    "NoteFlow does not show to-do lists, debts, or completion rates. Cards you miss return naturally to the scheduling pool and compete for the next retrieval opportunity like every other piece of knowledge.",
+                    "NoteFlow 不展示待办、欠账或完成率。没做到的卡会自然回到调度池，和所有知识一样重新竞争下一次检索机会。",
+                  )}
             </p>
-            <GoalPlanner profile={goalProfile} onChange={setGoalProfile} />
+            <GoalPlanner profile={goalProfile} onChange={setGoalProfile} agentGenerated={Boolean(agentHandoff)} />
             <button className="primary-button start-session-button" type="button" onClick={beginSession}>
               {t("Start this session", "开始本次学习")}
               <span aria-hidden="true">→</span>
             </button>
           </div>
-          <SkillStateView skills={skills} eyebrow={t("Before session", "Session 前")} title={t("Current skill state", "当前能力状态")} />
+          {agentHandoff
+            ? <AgentPlanPreview handoff={agentHandoff} />
+            : <SkillStateView skills={skills} eyebrow={t("Before session", "Session 前")} title={t("Current skill state", "当前能力状态")} />}
         </section>
       )}
 
@@ -1025,9 +1108,20 @@ This is not a debt. It has returned to the scheduling pool as an independent car
                   </button>
                   <button className="secondary-button" type="button" onClick={() => commitAttempt("stuck")}>{t("I got stuck", "卡住了")}</button>
                 </div>
-                <button className="skip-button" type="button" onClick={skipCurrentCard}>
-                  {t("Skip · move to the end of this session", "Skip · 放到本次队尾")}
-                </button>
+                <div className="defer-actions">
+                  <button className="queue-end-button" type="button" onClick={moveCurrentCardToEnd} disabled={sessionQueue.length <= 1}>
+                    {t("Later this session · move to queue end", "本次稍后再做 · 放在队末")}
+                  </button>
+                  <button className="skip-button" type="button" onClick={skipCurrentCard}>
+                    {t("Skip for now · return to learning pool", "暂时跳过 · 回到学习池")}
+                  </button>
+                </div>
+                {sessionQueue.length <= 1 && (
+                  <p className="queue-end-note">{t(
+                    "There is no later position because this session has one card. Skip for now ends this session and returns the card to the pool.",
+                    "本次只有这一张卡，所以没有更后的队位；“暂时跳过”会结束本次 Session，并把卡放回学习池。",
+                  )}</p>
+                )}
               </div>
             )}
 

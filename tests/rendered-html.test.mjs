@@ -254,14 +254,15 @@ test("implements dual auth, unified notes, scoped scheduling, and private persis
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
 });
 
-test("defaults to English, keeps Chinese in place, and hands Agent output into practice", async () => {
-  const [layout, localeSource, hackathonHeader, hackathonDemo, guestWorkspace, clientApp, handoff, proxy] = await Promise.all([
+test("defaults to English, keeps Chinese in place, and reviews Agent plans before practice", async () => {
+  const [layout, localeSource, hackathonHeader, hackathonDemo, guestWorkspace, clientApp, goalPlanner, handoff, proxy] = await Promise.all([
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/locale.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/hackathon/hackathon-header.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/hackathon/hackathon-demo.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/demo/guest-workspace.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/noteflow-app.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/goal-planner.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/hackathon-handoff.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/hackathon-agent/route.ts", import.meta.url), "utf8"),
   ]);
@@ -283,9 +284,9 @@ test("defaults to English, keeps Chinese in place, and hands Agent output into p
   assert.match(hackathonDemo, /markdownDownloadHref/);
   assert.match(hackathonDemo, /download="noteflow-learning-plan\.md"/);
   assert.match(hackathonDemo, /Download \.md/);
-  assert.match(hackathonDemo, /Start learning now/);
-  assert.match(hackathonDemo, /Opens NoteFlow retrieval mode/);
-  assert.match(hackathonDemo, /Short \+ frequent/);
+  assert.match(hackathonDemo, /Start in your own words/);
+  assert.match(hackathonDemo, /Review plan/);
+  assert.match(hackathonDemo, /Does not start the session yet/);
   assert.match(hackathonDemo, /Add to calendar/);
   assert.match(hackathonDemo, /Notification\.requestPermission/);
   assert.match(hackathonDemo, /hackathonHandoffKey/);
@@ -294,8 +295,18 @@ test("defaults to English, keeps Chinese in place, and hands Agent output into p
   assert.match(clientApp, /agentHandoff\.nextRetrievalPrompt/);
   assert.match(clientApp, /syncAgentFeedback/);
   assert.match(clientApp, /Visible plan mutation/);
-  assert.match(clientApp, /setSessionQueue\(\[launchCard\.id\]\)/);
+  assert.match(clientApp, /moveCurrentCardToEnd/);
+  assert.match(clientApp, /Later this session · move to queue end/);
+  assert.match(clientApp, /Skip for now · return to learning pool/);
+  assert.match(clientApp, /setPhase\("pre"\)/);
+  assert.match(goalPlanner, /type="range"/);
+  assert.match(goalPlanner, /Steady to sprint priority/);
+  assert.match(goalPlanner, /Session range/);
+  assert.match(goalPlanner, /Invitation range/);
+  assert.match(goalPlanner, /never limit voluntary learning/);
   assert.match(handoff, /type LearnerContext/);
+  assert.match(handoff, /type GeneratedPlanSettings/);
+  assert.match(handoff, /extractGeneratedPlan/);
   assert.match(handoff, /type RhythmRevision/);
   assert.match(handoff, /extractNextRetrieval/);
   assert.match(proxy, /Response language/);

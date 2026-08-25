@@ -29,6 +29,8 @@ test("declares the mandatory Google agent stack and honest preview behavior", as
   assert.match(agent, /publishMessage\(\{json: job\}\)/);
   assert.match(agent, /learnerContextSchema/);
   assert.match(agent, /rhythmPlanSchema/);
+  assert.match(agent, /planSettingsSchema/);
+  assert.match(agent, /paceBias/);
   assert.match(agent, /NEXT INVITATION/);
   assert.match(agent, /no persistence was claimed/i);
   assert.match(agent, /no background job was claimed/i);

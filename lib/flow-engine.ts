@@ -3,7 +3,17 @@ export type GoalId = "amazon-sde2" | "google-l4";
 export type GoalProfile = {
   title: string;
   baseGoal: GoalId;
-  mode: "steady" | "sprint";
+  roleBaseline: string;
+  themes: string[];
+  paceBias: number;
+  sessionMinutesMin: number;
+  sessionMinutesMax: number;
+  invitationsPerWeekMin: number;
+  invitationsPerWeekMax: number;
+  studyPattern: "short-frequent" | "fixed-daily" | "energy-aligned";
+  energyWindow: "morning" | "midday" | "evening" | "variable";
+  preferredTime: string;
+  reminderOptIn: boolean;
   sprintDeadline: string;
   focusSkillIds: string[];
 };
@@ -72,7 +82,17 @@ export const goals: Record<GoalId, { label: string; shortLabel: string }> = {
 export const defaultGoalProfile: GoalProfile = {
   title: "Amazon SDE II",
   baseGoal: "amazon-sde2",
-  mode: "steady",
+  roleBaseline: "Amazon · SDE II",
+  themes: ["Intervals", "Object Design", "Technical English", "Spring / JWT", "Graphs"],
+  paceBias: 25,
+  sessionMinutesMin: 10,
+  sessionMinutesMax: 25,
+  invitationsPerWeekMin: 3,
+  invitationsPerWeekMax: 5,
+  studyPattern: "short-frequent",
+  energyWindow: "evening",
+  preferredTime: "19:00",
+  reminderOptIn: false,
   sprintDeadline: "",
   focusSkillIds: [],
 };
@@ -290,10 +310,11 @@ export function rankCards(
   const daysUntilDeadline = profile.sprintDeadline
     ? Math.ceil((new Date(profile.sprintDeadline).getTime() - Date.now()) / 86_400_000)
     : 30;
-  const sprintUrgency =
-    profile.mode === "sprint"
-      ? Math.min(1, Math.max(0, 1 - Math.max(0, daysUntilDeadline) / 30))
-      : 0;
+  const paceBias = clamp((profile.paceBias ?? 25) / 100);
+  const deadlineUrgency = profile.sprintDeadline
+    ? Math.min(1, Math.max(0, 1 - Math.max(0, daysUntilDeadline) / 30))
+    : paceBias;
+  const sprintUrgency = paceBias * (0.55 + deadlineUrgency * 0.45);
 
   return focusedCards
     .map((card) => {
@@ -312,10 +333,13 @@ export function rankCards(
       const prerequisiteBonus = cardMemory.prerequisiteNeeded ? 0.18 : 0;
       const sprintBonus = sprintUrgency * (goalRelevance * 0.65 + masteryGap * 0.35) * 0.1;
       const familiarityDiscount = Math.sqrt(Math.max(1, cardMemory.intervalScale));
+      const retentionWeight = 0.44 - paceBias * 0.1;
+      const goalWeight = 0.22 + paceBias * 0.1;
+      const masteryWeight = 0.17 - paceBias * 0.02;
       const hiddenPriority =
-        (retentionNeed * (profile.mode === "sprint" ? 0.36 : 0.42) +
-          goalRelevance * (profile.mode === "sprint" ? 0.29 : 0.24) +
-          masteryGap * (profile.mode === "sprint" ? 0.17 : 0.16) +
+        (retentionNeed * retentionWeight +
+          goalRelevance * goalWeight +
+          masteryGap * masteryWeight +
           card.dependencyValue * 0.1 +
           card.uncertainty * 0.08 +
           sprintBonus +

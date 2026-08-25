@@ -207,7 +207,7 @@ export async function POST(request: NextRequest) {
         JSON.stringify(learnerContext, null, 2),
         "Messy source notes:",
         notes,
-        "Build a sustainable learning rhythm before choosing the retrieval. If essential decision-changing context is still absent, return only one CLARIFICATION question. Otherwise persist the rhythm and knowledge model, set one next invitation, and give exactly one next retrieval prompt.",
+        "Infer an adjustable plan from this natural-language input before choosing the retrieval. Create planSettings with a continuous steady-to-sprint pace bias, session-duration range, invitation-frequency range, pattern, energy window, optional role baseline, and evidence-grounded themes. These ranges guide invitations, never limit voluntary learning. If essential decision-changing context is still absent, return only one CLARIFICATION question. Otherwise persist the plan, rhythm, and knowledge model; set one next invitation; and give exactly one next retrieval prompt.",
         "Use the requested response language for every user-facing sentence while keeping tool arguments accurate.",
       ].join("\n\n");
     }

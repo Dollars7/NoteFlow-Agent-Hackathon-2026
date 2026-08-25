@@ -4,8 +4,11 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   extractAgentSection,
   extractAgentText,
+  extractGeneratedPlan,
   extractNextRetrieval,
   hackathonHandoffKey,
+  normalizeGeneratedPlan,
+  type GeneratedPlanSettings,
   type HackathonHandoff,
   type LearnerContext,
   type StudyPattern,
@@ -63,6 +66,39 @@ const previewPlans = {
     mutation: "已创建‘可用性与延迟’前置卡，并把分区键设计安排在法定人数推理之后。",
   },
 } as const;
+
+const previewGeneratedPlans: Record<Locale, GeneratedPlanSettings> = {
+  en: {
+    goalTitle: "Pass a senior backend systems interview in 21 days",
+    roleBaseline: "Senior backend systems interview",
+    themes: ["Database sharding", "CAP trade-offs", "Raft consensus", "Cache consistency"],
+    paceBias: 74,
+    sessionMinutesMin: 15,
+    sessionMinutesMax: 25,
+    invitationsPerWeekMin: 4,
+    invitationsPerWeekMax: 5,
+    studyPattern: "short-frequent",
+    energyWindow: "evening",
+    preferredTime: "19:00",
+    reminderOptIn: true,
+    rationale: "A near-term interview and busy weekdays favor short, frequent verbal retrieval with stronger goal relevance.",
+  },
+  zh: {
+    goalTitle: "在 21 天内通过高级后端系统面试",
+    roleBaseline: "高级后端系统面试",
+    themes: ["数据库分片", "CAP 权衡", "Raft 共识", "缓存一致性"],
+    paceBias: 74,
+    sessionMinutesMin: 15,
+    sessionMinutesMax: 25,
+    invitationsPerWeekMin: 4,
+    invitationsPerWeekMax: 5,
+    studyPattern: "short-frequent",
+    energyWindow: "evening",
+    preferredTime: "19:00",
+    reminderOptIn: true,
+    rationale: "近期面试目标和繁忙工作日更适合少量多次的口述检索，并提高目标相关内容的权重。",
+  },
+};
 
 function nextReminderDate(preferredTime: string): Date {
   const [hours, minutes] = preferredTime.split(":").map(Number);
@@ -133,6 +169,7 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
   const [continuationToken, setContinuationToken] = useState("");
   const [rhythmPlan, setRhythmPlan] = useState("");
   const [nextInvitation, setNextInvitation] = useState("");
+  const [generatedPlan, setGeneratedPlan] = useState<GeneratedPlanSettings | null>(null);
   const [reminderStatus, setReminderStatus] = useState("");
   const [progressStep, setProgressStep] = useState(0);
   const previousLocale = useRef<Locale>("en");
@@ -217,6 +254,16 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
     setProgressStep(step);
   }
 
+  function applyGeneratedPlan(plan: GeneratedPlanSettings) {
+    setGeneratedPlan(plan);
+    setStudyPattern(plan.studyPattern);
+    setSessionMinutes(Math.round((plan.sessionMinutesMin + plan.sessionMinutesMax) / 2));
+    setDaysPerWeek(plan.invitationsPerWeekMax);
+    setEnergyWindow(plan.energyWindow);
+    setPreferredTime(plan.preferredTime);
+    setReminderOptIn(plan.reminderOptIn);
+  }
+
   async function runAgent(action: "plan" | "clarification" = "plan") {
     startProgress(action);
     setStage("running");
@@ -226,6 +273,7 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
       setContinuationToken("");
       setRhythmPlan("");
       setNextInvitation("");
+      setGeneratedPlan(null);
     }
 
     if (!connected) {
@@ -238,6 +286,7 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
         );
         setRhythmPlan(preview.rhythm);
         setNextInvitation(preview.invitation);
+        applyGeneratedPlan(previewGeneratedPlans[locale]);
         stopProgress(4);
         setStage("complete");
       }, 720);
@@ -275,6 +324,7 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
         setStage("clarifying");
         return;
       }
+      applyGeneratedPlan(extractGeneratedPlan(payload.events, { goal, locale, learnerContext }));
       setRhythmPlan(extractAgentSection(report, ["rhythm plan", "学习节奏"]));
       setNextInvitation(extractAgentSection(report, ["next invitation", "下次邀请"]));
       stopProgress(4);
@@ -289,7 +339,7 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
     }
   }
 
-  function practiceNextStep() {
+  function reviewPlanBeforeSession() {
     if (!agentText || stage !== "complete") return;
     const handoff: HackathonHandoff = {
       id: `agent-retrieval-${Date.now()}`,
@@ -303,6 +353,7 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
       learnerContext,
       rhythmPlan,
       nextInvitation,
+      generatedPlan: generatedPlan ?? normalizeGeneratedPlan(null, { goal: goal.trim(), locale, learnerContext }),
       createdAt: new Date().toISOString(),
     };
     window.localStorage.setItem(hackathonHandoffKey, JSON.stringify(handoff));
@@ -407,8 +458,8 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
         <div className={styles.runPanel}>
           <div className={styles.panelHeader}>
             <div>
-              <span>{t("Live workflow", "实时工作流")}</span>
-              <h2>{t("Build my next move", "生成我的下一步")}</h2>
+              <span>{t("Start in your own words", "先用你自己的话描述")}</span>
+              <h2>{t("Tell NoteFlow what you need", "告诉 NoteFlow 你需要什么")}</h2>
             </div>
             <span className={styles.runId}>RUN · 001</span>
           </div>
@@ -425,8 +476,8 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
 
           <div className={styles.contextBlock}>
             <div className={styles.contextHeading}>
-              <span>{t("Your learning rhythm", "你的学习节奏")}</span>
-              <small>{t("Self-described context, never a personality diagnosis", "由你自己描述，不做性格诊断")}</small>
+              <span>{t("Natural-language context", "自然语言学习背景")}</span>
+              <small>{t("The Agent will propose settings after reading this", "Agent 阅读后再生成设置")}</small>
             </div>
 
             <label className={styles.field}>
@@ -438,47 +489,10 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
               <span>{t("Constraints the plan must respect", "计划必须尊重的限制")}</span>
               <textarea value={constraints} onChange={(event) => setConstraints(event.target.value)} rows={2} />
             </label>
-
-            <div className={styles.contextGrid}>
-              <label className={styles.field}>
-                <span>{t("Pattern", "学习方式")}</span>
-                <select value={studyPattern} onChange={(event) => setStudyPattern(event.target.value as StudyPattern)}>
-                  <option value="short-frequent">{t("Short + frequent", "少量多次")}</option>
-                  <option value="fixed-daily">{t("Fixed daily time", "每天固定时间")}</option>
-                  <option value="energy-aligned">{t("Follow energy", "跟随精力窗口")}</option>
-                </select>
-              </label>
-              <label className={styles.field}>
-                <span>{t("Session", "每次时长")}</span>
-                <select value={sessionMinutes} onChange={(event) => setSessionMinutes(Number(event.target.value))}>
-                  {[10, 20, 30, 45].map((minutes) => <option key={minutes} value={minutes}>{minutes} min</option>)}
-                </select>
-              </label>
-              <label className={styles.field}>
-                <span>{t("Days / week", "每周天数")}</span>
-                <select value={daysPerWeek} onChange={(event) => setDaysPerWeek(Number(event.target.value))}>
-                  {[3, 4, 5, 6, 7].map((days) => <option key={days} value={days}>{days}</option>)}
-                </select>
-              </label>
-              <label className={styles.field}>
-                <span>{t("Best energy", "最佳精力")}</span>
-                <select value={energyWindow} onChange={(event) => setEnergyWindow(event.target.value as EnergyWindow)}>
-                  <option value="morning">{t("Morning", "早晨")}</option>
-                  <option value="midday">{t("Midday", "中午")}</option>
-                  <option value="evening">{t("Evening", "晚间")}</option>
-                  <option value="variable">{t("It varies", "每天不同")}</option>
-                </select>
-              </label>
-              <label className={styles.field}>
-                <span>{t("Invitation time", "邀请时间")}</span>
-                <input type="time" value={preferredTime} onChange={(event) => setPreferredTime(event.target.value)} />
-              </label>
-            </div>
-
-            <label className={styles.reminderChoice}>
-              <input type="checkbox" checked={reminderOptIn} onChange={(event) => setReminderOptIn(event.target.checked)} />
-              <span>{t("Offer an opt-in reminder after the plan is ready", "计划生成后提供可选提醒")}</span>
-            </label>
+            <p className={styles.inferenceNote}>{t(
+              "No pace, duration, or weekly quota is fixed here. The Agent will infer adjustable ranges, and voluntary learning always remains unlimited.",
+              "这里不先固定强度、时长或每周配额。Agent 会生成可调整的范围；你主动学习的次数始终不设上限。",
+            )}</p>
           </div>
 
           {stage === "clarifying" && (
@@ -591,7 +605,9 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
             <div className={styles.rhythmCard}>
               <div className={styles.rhythmHeading}>
                 <span>{t("P0 rhythm created", "P0 学习节奏已生成")}</span>
-                <strong>{sessionMinutes} min · {daysPerWeek}× / {t("week", "周")}</strong>
+                <strong>{generatedPlan
+                  ? `${generatedPlan.sessionMinutesMin}–${generatedPlan.sessionMinutesMax} min · ${generatedPlan.invitationsPerWeekMin}–${generatedPlan.invitationsPerWeekMax}× / ${t("week", "周")}`
+                  : `${sessionMinutes} min · ${daysPerWeek}× / ${t("week", "周")}`}</strong>
               </div>
               <MarkdownReport source={rhythmPlan} compact />
               {nextInvitation && (
@@ -612,19 +628,19 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
           {stage === "complete" && agentText && (
             <div className={styles.handoffAction}>
               <div className={styles.handoffPrompt}>
-                <span className={styles.handoffPromptLabel}>{t("Your first retrieval", "你的第一次检索")}</span>
-                <strong>{t("Ready for one focused learning session?", "准备开始一次专注学习吗？")}</strong>
+                <span className={styles.handoffPromptLabel}>{t("Plan generated · confirmation comes next", "计划已生成 · 下一步先确认")}</span>
+                <strong>{t("Review the Agent's settings before learning", "开始学习前，先确认 Agent 生成的设置")}</strong>
                 <p>{nextRetrieval}</p>
                 <small>{t(
-                  "Clicking starts NoteFlow learning mode immediately with this one Agent-selected question. Your goal, evidence, and report move with it.",
-                  "点击后会立即进入 NoteFlow 学习模式，并从这个 Agent 选择的问题开始；你的目标、证据和报告会一起带入。",
+                  "Your goal, inferred themes, pace range, session range, and first retrieval move to the review page. Learning starts only after you press Start this session.",
+                  "你的目标、推断主题、强度范围、时长范围和第一次检索会进入确认页；只有再次点击“开始本次学习”才真正开始。",
                 )}</small>
               </div>
               <div className={styles.handoffButtonGroup}>
-                <button type="button" onClick={practiceNextStep}>
-                  {t("Start learning now", "现在开始学习")} <span aria-hidden="true">→</span>
+                <button type="button" onClick={reviewPlanBeforeSession}>
+                  {t("Review plan", "确认学习计划")} <span aria-hidden="true">→</span>
                 </button>
-                <small>{t("Opens NoteFlow retrieval mode", "进入 NoteFlow 检索模式")}</small>
+                <small>{t("Does not start the session yet", "此时还不会开始 Session")}</small>
               </div>
             </div>
           )}
