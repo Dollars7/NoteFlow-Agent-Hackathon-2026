@@ -141,6 +141,18 @@ All timestamps use America/Phoenix (UTC-07:00 during the contest). This log reco
 - Deployed revision `noteflow-agent-00005-l5v` and confirmed it serves 100% of traffic with the intended settings.
 - Reproduced the original risk condition with two simultaneous public planning requests through the stable Vercel domain. Both returned HTTP 200, Agent events, and signed continuations; neither returned an error or 503.
 
+## 2026-08-25 — Simplified planning surface, language boundary, and data provenance
+
+- Replaced the prefilled backend-interview form with empty required fields and simple placeholders. Renamed **Unstructured evidence** to **What are you learning or getting stuck on?** and kept the generate action disabled until the learner supplies a goal and at least one real note, question, or stuck point.
+- Collapsed optional learning preferences and constraints into **More settings**. On the review page, kept the goal, steady-to-sprint priority, and Session-length sliders in the primary flow; moved reminder frequency, pattern, timing, role baseline, and themes into a second **More settings** disclosure.
+- Renamed user-facing invitation terminology to **Study reminder**. Internal persisted field names remain backward-compatible, while the interface now uses reminder frequency, preferred reminder time, and next study reminder.
+- Replaced the long default Agent report with a concise goal, rationale, focus, Session length, and reminder summary. The full Markdown report remains available only under **Agent details and audit trail** and as a `.md` download.
+- Removed the full Agent report and raw source notes from the retrieval card back. The card now shows only why that practice was selected and the inferred learning focus.
+- Bound generated content to the language used for that Agent run. Changing language on the entry page clears the previous generated presentation, and the Agent handoff aligns and locks the practice UI to the content language.
+- Made persistence provenance explicit: Firestore stores contest-period Agent models and immutable versions; guest handoff and retrieval state stay in the browser; Supabase is pre-existing authentication; Cloudflare D1 is not mounted on the Vercel judge deployment; initial skills and cards are disclosed demo seed data.
+- Passed root and Agent TypeScript checks, eight automated tests, the standard Next.js production build, and the Vinext compatibility build. Published implementation commit `82e919a` (`feat: simplify plan flow and lock content language`) and confirmed the Vercel deployment succeeded.
+- Ran a public validation through the stable domain: empty learning material returned HTTP 400, while a simple English planning run returned HTTP 200, a signed continuation, and structured plan settings. The final English Agent report contained no Chinese characters.
+
 ## Logging rules
 
 - Add a dated entry for each material feature, deployment, or submission change.
