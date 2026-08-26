@@ -111,10 +111,12 @@ function SkillStateView({
   skills,
   title,
   eyebrow,
+  isGuest = false,
 }: {
   skills: SkillState[];
   title: string;
   eyebrow: string;
+  isGuest?: boolean;
 }) {
   const { locale, t } = useLocale();
 
@@ -125,7 +127,9 @@ function SkillStateView({
           <p className="eyebrow">{eyebrow}</p>
           <h2>{title}</h2>
         </div>
-        <span className="local-pill"><i /> {t("Saved to your private space", "保存到私人空间")}</span>
+        <span className="local-pill"><i /> {isGuest
+          ? t("Demo signals · this browser", "演示信号 · 当前浏览器")
+          : t("Saved to your private space", "保存到私人空间")}</span>
       </div>
       <div className="state-grid">
         {skills.map((skill) => {
@@ -169,7 +173,7 @@ function AgentPlanPreview({ handoff }: { handoff: HackathonHandoff }) {
           <p className="eyebrow">{t("After you press Start", "点击开始之后")}</p>
           <h2>{t("First retrieval ready", "第一次检索已准备好")}</h2>
         </div>
-        <span className="local-pill"><i /> {t("Not started yet", "尚未开始")}</span>
+        <span className="local-pill"><i /> {t("Cloud plan · browser session", "云端计划 · 浏览器 Session")}</span>
       </div>
       <div className="queued-retrieval">
         <span>{t("Agent-selected", "Agent 已选择")}</span>
@@ -432,13 +436,18 @@ export default function NoteFlowApp({
   useEffect(() => {
     if (!hasRestored || !agentHandoff || appliedHandoffId.current === agentHandoff.id) return;
     appliedHandoffId.current = agentHandoff.id;
+    const generatedPlan = agentHandoff.generatedPlan;
+    const rationale = generatedPlan?.rationale || (agentHandoff.locale === "zh"
+      ? "这道练习由 Agent 根据你的目标和卡点选择。"
+      : "The Agent selected this practice from your goal and stuck points.");
+    const focusLines = (generatedPlan?.themes ?? []).map((theme) => `- ${theme}`).join("\n");
 
     const launchCard: NoteCard = {
       id: agentHandoff.id,
       skillId: "ood",
       tags: ["agent-selected", "hackathon", "retrieval"],
       mode: "design",
-      title: agentHandoff.title,
+      title: agentHandoff.locale === "zh" ? "Agent 选择的练习" : "Agent-selected practice",
       prompt: agentHandoff.nextRetrievalPrompt,
       hintKeywords: agentHandoff.locale === "zh"
         ? ["核心权衡", "用户影响", "设计决策"]
@@ -447,14 +456,13 @@ export default function NoteFlowApp({
         ? ["先说出必须保护的系统行为。", "明确你愿意放宽的保证。", "说明用户会看到什么，以及你如何缓解。"]
         : ["State the system behavior you must protect.", "Name the guarantee you are willing to relax.", "Explain what the user will observe and how you would mitigate it."],
       noteMarkdown: agentHandoff.locale === "zh"
-        ? `## Agent 报告\n\n${agentHandoff.agentReport}\n\n## 原始学习证据\n\n${agentHandoff.sourceNotes}`
-        : `## Agent report\n\n${agentHandoff.agentReport}\n\n## Original learning evidence\n\n${agentHandoff.sourceNotes}`,
+        ? `## 为什么练习这一项\n\n${rationale}${focusLines ? `\n\n## 学习重点\n\n${focusLines}` : ""}`
+        : `## Why this practice\n\n${rationale}${focusLines ? `\n\n## Learning focus\n\n${focusLines}` : ""}`,
       goalRelevance: { "amazon-sde2": 0.95, "google-l4": 0.95 },
       dependencyValue: 0.92,
       uncertainty: 0.82,
     };
 
-    const generatedPlan = agentHandoff.generatedPlan;
     setGoalProfile((profile) => ({
       ...profile,
       title: generatedPlan?.goalTitle || agentHandoff.goal,
@@ -944,13 +952,17 @@ This is not a debt. It has returned to the scheduling pool as an independent car
 
         {phase !== "pre" && phase !== "post" ? (
           <div className="active-header">
-            <LanguageSwitch />
+            {agentHandoff
+              ? <span className="content-language-badge">{agentHandoff.locale === "zh" ? "中文内容" : "English content"}</span>
+              : <LanguageSwitch />}
             <span>{t("Retrieval in progress", "检索中")}</span>
             <button className="quiet-button" type="button" onClick={finishSession}>{t("End this session", "结束本次学习")}</button>
           </div>
         ) : (
           <div className="header-tools">
-            <LanguageSwitch />
+            {agentHandoff
+              ? <span className="content-language-badge">{agentHandoff.locale === "zh" ? "中文内容" : "English content"}</span>
+              : <LanguageSwitch />}
             <div className="data-status">
               <i />
               <span>{isGuest ? t("Guest demo · saved in this browser", "访客演示 · 保存在当前浏览器") : t("Private workspace · saved to the cloud", "个人空间 · 云端自动保存")}</span>
@@ -1016,8 +1028,8 @@ This is not a debt. It has returned to the scheduling pool as an independent car
             <p>
               {agentHandoff
                 ? t(
-                    "Adjust the generated ranges if needed. They guide priority, invitations, and a suggested stopping point—not how often you are allowed to learn.",
-                    "如有需要，可以调整 Agent 生成的范围。它们只指导优先级、邀请和建议停止点，不限制你可以学习多少次。",
+                    "Adjust the generated ranges if needed. They guide priority, study reminders, and a suggested stopping point—not how often you are allowed to learn.",
+                    "如有需要，可以调整 Agent 生成的范围。它们只指导优先级、学习提醒和建议停止点，不限制你可以学习多少次。",
                   )
                 : t(
                     "NoteFlow does not show to-do lists, debts, or completion rates. Cards you miss return naturally to the scheduling pool and compete for the next retrieval opportunity like every other piece of knowledge.",
@@ -1032,7 +1044,7 @@ This is not a debt. It has returned to the scheduling pool as an independent car
           </div>
           {agentHandoff
             ? <AgentPlanPreview handoff={agentHandoff} />
-            : <SkillStateView skills={skills} eyebrow={t("Before session", "Session 前")} title={t("Current skill state", "当前能力状态")} />}
+            : <SkillStateView skills={skills} eyebrow={t("Before session", "Session 前")} title={t("Current skill state", "当前能力状态")} isGuest={isGuest} />}
         </section>
       )}
 
@@ -1049,7 +1061,7 @@ This is not a debt. It has returned to the scheduling pool as an independent car
             {rhythmRevision && (
               <div className="agent-rhythm-sync compact">
                 <p className="eyebrow">{t("Agent revised the next rhythm", "Agent 已调整下一次节奏")}</p>
-                <strong>{rhythmRevision.nextInvitation || t("The next invitation follows the revised rhythm.", "下次邀请将按照新节奏出现。")}</strong>
+                <strong>{rhythmRevision.nextInvitation || t("The next study reminder follows the revised rhythm.", "下次学习提醒将按照新节奏出现。")}</strong>
               </div>
             )}
             <button className="primary-button" type="button" onClick={() => setPhase("pre")}>
@@ -1057,7 +1069,7 @@ This is not a debt. It has returned to the scheduling pool as an independent car
               <span aria-hidden="true">↗</span>
             </button>
           </div>
-          <SkillStateView skills={skills} eyebrow={t("After session", "Session 后")} title={t("Updated skill state", "更新后的能力状态")} />
+          <SkillStateView skills={skills} eyebrow={t("After session", "Session 后")} title={t("Updated skill state", "更新后的能力状态")} isGuest={isGuest} />
         </section>
       )}
 
@@ -1303,7 +1315,7 @@ This is not a debt. It has returned to the scheduling pool as an independent car
                         </div>
                         {rhythmRevision.nextInvitation && (
                           <div className="next-invitation">
-                            <span>{t("Next invitation", "下次邀请")}</span>
+                            <span>{t("Next study reminder", "下次学习提醒")}</span>
                             <strong>{rhythmRevision.nextInvitation}</strong>
                           </div>
                         )}

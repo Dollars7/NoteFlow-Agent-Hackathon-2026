@@ -16,12 +16,12 @@ It is not meant to be a pasted-notes report generator. The Agent should adapt th
 
 1. The learner describes a goal, source evidence, learning preferences, and real constraints in their own words.
 2. The Agent asks only the clarifying questions that would change the plan.
-3. The Agent infers a reviewable draft: goal, optional role baseline, themes, a continuous steady-to-sprint priority, session-duration range, invitation-frequency range, study pattern, energy window, and reminder preference.
-4. The learner reviews or changes those settings, then explicitly starts the session. The ranges guide priority and invitations; they never limit voluntary learning.
-5. A notification invites the learner to begin; it does not create an overdue task.
+3. The Agent infers a reviewable draft: goal, optional role baseline, themes, a continuous steady-to-sprint priority, session-duration range, study-reminder frequency, study pattern, energy window, and reminder preference.
+4. The learner reviews or changes those settings, then explicitly starts the session. The ranges guide priority and study reminders; they never limit voluntary learning.
+5. An optional study reminder brings the learner back; it does not create an overdue task.
 6. NoteFlow starts a retrieval session and selects the next knowledge object from memory evidence and goal relevance.
 7. The learner's attempt, stuck point, skip, and memory feedback return to the Agent.
-8. The Agent revises timing, session load, knowledge scope, and the next invitation. Longer analysis can continue asynchronously after the learner leaves.
+8. The Agent revises timing, session load, knowledge scope, and the next study reminder. Longer analysis can continue asynchronously after the learner leaves.
 
 ```text
 Goal + personal learning context
@@ -62,9 +62,9 @@ The original Flow Engine remains responsible for **what to retrieve now**. The A
 - default-English public experience with an in-place Chinese switch;
 - no-account judging and guest-practice path;
 - natural-language goal, unstructured evidence, self-described learning preferences, and real-constraint intake without requiring fixed quotas first;
-- Agent-generated, learner-editable plan settings: inferred goal, optional role baseline, themes, continuous steady-to-sprint priority, session-duration range, invitation-frequency range, study pattern, energy window, and reminder preference;
+- Agent-generated, learner-editable plan settings: inferred goal, optional role baseline, themes, continuous steady-to-sprint priority, session-duration range, study-reminder frequency, study pattern, energy window, and reminder preference;
 - an explicit plan-review boundary before the learner starts the Agent-selected retrieval;
-- Agent-generated sustainable rhythm, plan settings, and next invitation persisted with the knowledge model in Firestore;
+- Agent-generated sustainable rhythm, plan settings, and next study reminder persisted with the knowledge model in Firestore;
 - a signed continuation session for a real decision-changing clarification when one is necessary;
 - Gemini 3.5 Flash reasoning through Google ADK;
 - Firestore current-model mutation plus immutable versions;
@@ -72,8 +72,8 @@ The original Flow Engine remains responsible for **what to retrieve now**. The A
 - direct handoff from an Agent-selected retrieval prompt into the existing NoteFlow practice flow;
 - two explicit card-defer actions: move to the end of the current session, or skip for now and return to the future learning pool;
 - actual retrieval outcome, hint depth, reaction time, and memory change returned to the same Google Agent session;
-- visible before-and-after rhythm changes plus the revised next invitation;
-- opt-in downloadable calendar invitation and browser reminder activation;
+- visible before-and-after rhythm changes plus the revised next study reminder;
+- opt-in downloadable calendar reminder and browser reminder activation;
 - transparent preview labeling when the live Agent connection is absent.
 
 ### Required after P0
@@ -83,7 +83,7 @@ The original Flow Engine remains responsible for **what to retrieve now**. The A
 - longitudinal adaptation across several completed sessions rather than one immediate feedback turn;
 - completed background analysis reflected in the learner's next session.
 
-The current build completes the P0 loop from learner context to rhythm, invitation, retrieval, feedback, and a visibly revised rhythm. Calendar reminders survive the browser through the learner's calendar; browser notifications are a lightweight opt-in companion, not a claim of production push delivery.
+The current build completes the P0 loop from learner context to rhythm, reminder, retrieval, feedback, and a visibly revised rhythm. Calendar reminders survive the browser through the learner's calendar; browser notifications are a lightweight opt-in companion, not a claim of production push delivery.
 
 ## Current working judge path
 
@@ -91,16 +91,28 @@ No account is required.
 
 1. Open the [hosted demo](https://note-flow-agent-hackathon-2026.vercel.app) (the root page and `/hackathon` show the same judge flow).
 2. Keep English or switch the same interface to Chinese.
-3. Describe the learning goal, source evidence, learning preferences, and real constraints in natural language.
-4. Run NoteFlow Agent and review the persisted rhythm, next invitation, first-retrieval preview, and auditable model action.
-5. Optionally add the invitation to a calendar or enable the browser reminder.
+3. Describe the learning goal and at least one note, question, or stuck point. Learning preferences and constraints are optional under **More settings**.
+4. Run NoteFlow Agent and review the concise plan summary. The full Agent report remains collapsed under **Agent details and audit trail**.
+5. Optionally add the study reminder to a calendar or enable the browser reminder.
 6. Select **Review plan**. NoteFlow opens `/demo` without starting a learning session.
-7. Review or change the generated priority, duration and invitation ranges, study pattern, energy window, goal, and optional role baseline.
+7. Review the goal, priority slider, and Session-length sliders. Reminder frequency, study pattern, timing, themes, and optional role baseline remain under **More settings**.
 8. Select **Start this session** to begin the Agent-selected retrieval card.
 9. During practice, **Later this session · move to queue end** rotates a card only when another card exists; **Skip for now · return to learning pool** removes it from this session. With one card, Skip ends the session and returns the card to the future pool.
 10. Complete the retrieval feedback. The same Google Agent session receives the evidence and shows the rhythm before and after its revision.
 
-`/account` is an optional personal-account route. Supabase is not required for judging or guest practice.
+`/account` belongs to the pre-existing product foundation and is not part of the public Vercel judging path. Supabase is not required for judging or guest practice.
+
+## Where data lives
+
+| Data | Current source of truth |
+| --- | --- |
+| Agent knowledge model, generated plan settings, immutable versions, and background results | Google Firestore |
+| Public judge handoff and guest retrieval state | Current browser storage; the interface labels this explicitly |
+| Supabase | Authentication only in the pre-existing account route |
+| Cloudflare D1 | Pre-existing account workspace persistence; it is not mounted on the Vercel judge deployment |
+| Initial `/demo` skills and cards | Disclosed pre-existing demo seed data in the repository |
+
+The public flow is therefore intentionally hybrid, not a single disconnected database. Firestore proves Agent mutation; browser storage keeps the no-account judge Session usable without claiming cross-device continuity. Generated content is locked to the language used for that Agent run so an English interface cannot silently reuse a Chinese result, or vice versa.
 
 ## Google technology
 
@@ -123,7 +135,7 @@ The Google Agent stack is running in entrant-owned billing project `project-0069
 - background status: `complete`
 - completion time: `2026-08-22T17:43:24.168Z`
 
-These identifiers prove the evidence-to-model-to-background-job path. The later P0 deployment additionally verified a live planning turn followed by an authenticated feedback continuation; both returned a persisted rhythm, next invitation, and next retrieval. It does not claim production push-notification delivery.
+These identifiers prove the evidence-to-model-to-background-job path. The later P0 deployment additionally verified a live planning turn followed by an authenticated feedback continuation; both returned a persisted rhythm, next study reminder, and next practice. It does not claim production push-notification delivery.
 
 The independent Vercel production deployment was also tested end to end on August 22, 2026. A public judge run returned `READY`, persisted immutable Firestore model version `8DopLuEwDZ4SVnk4eqyn`, and handed the Agent-selected retrieval prompt into `/demo?source=agent`.
 

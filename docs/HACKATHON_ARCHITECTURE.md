@@ -8,6 +8,7 @@ flowchart LR
     Web["NoteFlow /hackathon UI<br/>public judge experience"]
     Review["Generated plan review<br/>editable ranges + explicit start"]
     Demo["NoteFlow /demo<br/>full guest learning workspace"]
+    Browser[("Browser storage<br/>guest handoff + retrieval state")]
     Proxy["Same-origin server proxy<br/>rate-limited + server-only token"]
     API["ADK API server<br/>Cloud Run"]
     Agent["NoteFlow Learning Partner<br/>Google ADK + Gemini 3.5 Flash"]
@@ -20,6 +21,8 @@ flowchart LR
     Learner --> Web
     Web --> Review
     Review -->|"Start this session"| Demo
+    Web --> Browser
+    Demo --> Browser
     Web --> Proxy
     Proxy -->|"authenticated ADK session + /run"| API
     API --> Agent
@@ -48,6 +51,9 @@ flowchart LR
 - Current-session deferral and future-pool skipping are separate scheduler actions. A one-card session cannot move its card later; skipping it ends that session and preserves the card for future scheduling.
 - The interface labels deterministic preview output and never presents it as Gemini output.
 - The public `/demo` route exposes the pre-existing retrieval-first learning workspace without requiring a judge account; its data remains on that browser.
+- Supabase authenticates the pre-existing account route. Its workspace-state endpoint uses Cloudflare D1, which is not mounted on the Vercel judge deployment and is not presented as part of the public contest path.
+- Initial `/demo` skills and cards are disclosed repository seed data. Agent-generated models and immutable versions are real Firestore writes; the UI labels guest/browser and cloud boundaries separately.
+- Each generated plan keeps the language selected for that run. Changing language on the entry page clears the old generated presentation; the Agent handoff locks the practice UI to the generated content language.
 
 ## Contest technology mapping
 

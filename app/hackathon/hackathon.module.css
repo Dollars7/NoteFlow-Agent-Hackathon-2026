@@ -193,12 +193,21 @@
 .field input:focus, .field textarea:focus, .field select:focus { background: #111713; border-color: rgba(217, 255, 136, 0.44); }
 .field textarea { color: #b7beb6; font-size: 12px; }
 .field select { appearance: none; color: #cbd2ca; cursor: pointer; font-size: 11px; }
-.contextBlock { background: rgba(217, 255, 136, 0.035); border: 1px solid rgba(217, 255, 136, 0.12); border-radius: 14px; margin-top: 16px; padding: 14px; }
+.fieldHelp { color: #778078; display: block; font-size: 9px; line-height: 1.5; margin: 7px 2px 0; }
+.fieldError { color: #e2bfa7; }
+.moreSettings { border: 1px solid rgba(238, 246, 232, 0.1); border-radius: 12px; margin-top: 16px; overflow: hidden; }
+.moreSettings > summary { align-items: center; color: #c7cec6; cursor: pointer; display: flex; font-size: 11px; font-weight: 720; justify-content: space-between; list-style: none; padding: 13px 14px; }
+.moreSettings > summary::-webkit-details-marker { display: none; }
+.moreSettings > summary::after { color: var(--agent-lime); content: "+"; font-size: 15px; margin-left: 12px; }
+.moreSettings[open] > summary::after { content: "−"; }
+.moreSettings > summary small { color: #6f7970; font-size: 9px; font-weight: 500; margin-left: auto; }
+.contextBlock { background: rgba(217, 255, 136, 0.035); border-top: 1px solid rgba(217, 255, 136, 0.1); padding: 2px 14px 14px; }
 .contextHeading { align-items: baseline; display: flex; gap: 10px; justify-content: space-between; }
 .contextHeading > span { color: var(--agent-lime); font-size: 10px; font-weight: 780; letter-spacing: 0.11em; text-transform: uppercase; }
 .contextHeading small { color: #6f7970; font-size: 9px; }
 .contextGrid { display: grid; gap: 0 9px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .inferenceNote { border-top: 1px solid rgba(217, 255, 136, 0.1); color: #7f8980; font-size: 9px; line-height: 1.6; margin: 14px 0 0; padding-top: 12px; }
+.localeNotice { background: rgba(217, 255, 136, 0.055); border-left: 2px solid var(--agent-lime); color: #aeb8ad; font-size: 10px; line-height: 1.55; margin: 14px 0 0; padding: 9px 11px; }
 .reminderChoice { align-items: center; color: #aab3aa; cursor: pointer; display: flex; font-size: 10px; gap: 9px; margin-top: 15px; }
 .reminderChoice input { accent-color: var(--agent-lime); height: 15px; width: 15px; }
 .clarification {
@@ -283,6 +292,15 @@
 .emptyOutput { align-items: center; color: #717a72; display: flex; gap: 18px; min-height: 245px; }
 .emptyOutput > span { color: var(--agent-lime); font-size: 28px; }
 .emptyOutput p { font-size: 13px; line-height: 1.65; max-width: 440px; }
+.planSummary { display: grid; gap: 20px; margin-top: 28px; }
+.planSummaryHeading { display: grid; gap: 8px; }
+.planSummaryHeading > span, .planSummaryGrid span { color: var(--agent-lime); font-size: 9px; font-weight: 780; letter-spacing: 0.1em; text-transform: uppercase; }
+.planSummaryHeading h3 { color: #f0f4ed; font-size: 21px; letter-spacing: -0.025em; margin: 0; }
+.planSummaryHeading p { color: #9da79d; font-size: 11px; line-height: 1.65; margin: 0; max-width: 660px; }
+.planSummaryGrid { display: grid; gap: 10px; grid-template-columns: 1.35fr 0.75fr 0.75fr; }
+.planSummaryGrid > div { background: rgba(217, 255, 136, 0.035); border: 1px solid rgba(217, 255, 136, 0.1); border-radius: 11px; display: grid; gap: 7px; padding: 13px; }
+.planSummaryGrid strong { color: #dce4d9; font-size: 11px; line-height: 1.45; }
+.errorOutput .markdownReport { color: #e2bfa7; }
 .markdownReport { color: #cbd2ca; display: grid; font-size: 12px; gap: 9px; line-height: 1.7; margin-top: 25px; }
 .markdownReport h2, .markdownReport h3, .markdownReport h4 { color: #f0f4ed; font-weight: 720; line-height: 1.3; margin: 13px 0 1px; }
 .markdownReport h2 { font-size: 18px; }
@@ -299,6 +317,18 @@
 .markdownBullet > b { color: var(--agent-lime); font-size: 10px; font-variant-numeric: tabular-nums; padding-top: 2px; }
 .markdownCompact { font-size: 11px; gap: 6px; margin-top: 13px; }
 .markdownCompact h2, .markdownCompact h3, .markdownCompact h4 { margin-top: 8px; }
+.auditDetails { border-top: 1px solid var(--agent-line); margin-top: 22px; padding-top: 14px; }
+.auditDetails > summary { color: #889289; cursor: pointer; font-size: 10px; list-style: none; }
+.auditDetails > summary::-webkit-details-marker { display: none; }
+.auditDetails > summary::before { color: var(--agent-lime); content: "+"; display: inline-block; margin-right: 8px; }
+.auditDetails[open] > summary::before { content: "−"; }
+.auditDetails > a { border: 1px solid rgba(217, 255, 136, 0.16); border-radius: 8px; color: var(--agent-lime); display: inline-flex; font-size: 9px; margin-top: 14px; padding: 8px 10px; text-decoration: none; }
+.studyReminderCard { align-items: center; background: rgba(217, 255, 136, 0.055); border: 1px solid rgba(217, 255, 136, 0.13); border-radius: 12px; display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr) auto; margin-top: 18px; padding: 14px; }
+.studyReminderCard > div:first-child { display: grid; gap: 5px; }
+.studyReminderCard > div:first-child span { color: var(--agent-lime); font-size: 9px; font-weight: 780; letter-spacing: 0.09em; text-transform: uppercase; }
+.studyReminderCard > div:first-child strong { color: #d9e0d6; font-size: 10px; line-height: 1.5; }
+.studyReminderCard .reminderActions { margin-top: 0; }
+.studyReminderCard .reminderStatus { grid-column: 1 / -1; }
 .rhythmCard { background: linear-gradient(135deg, rgba(217, 255, 136, 0.1), rgba(110, 168, 255, 0.055)); border: 1px solid rgba(217, 255, 136, 0.22); border-radius: 14px; margin-top: 22px; padding: 17px; }
 .rhythmHeading { align-items: center; display: flex; gap: 12px; justify-content: space-between; }
 .rhythmHeading span { color: var(--agent-lime); font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
@@ -359,6 +389,10 @@
   .runPanel, .workflowCard, .outputCard { border-radius: 13px; padding: 18px; }
   .contextGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .contextHeading { align-items: flex-start; flex-direction: column; }
+  .moreSettings > summary { align-items: flex-start; }
+  .moreSettings > summary small { display: none; }
+  .planSummaryGrid { grid-template-columns: 1fr; }
+  .studyReminderCard { grid-template-columns: 1fr; }
   .rhythmHeading { align-items: flex-start; flex-direction: column; }
   .handoffAction { grid-template-columns: 1fr; }
   .handoffButtonGroup { width: 100%; }

@@ -513,6 +513,18 @@ button:disabled {
   color: var(--muted);
 }
 
+.content-language-badge {
+  background: rgba(204, 255, 120, 0.07);
+  border: 1px solid rgba(204, 255, 120, 0.18);
+  border-radius: 999px;
+  color: var(--lime);
+  font-size: 9px;
+  font-weight: 760;
+  letter-spacing: 0.06em;
+  padding: 8px 10px;
+  text-transform: none;
+}
+
 .defer-actions {
   align-items: center;
   display: flex;
@@ -1418,7 +1430,7 @@ input:focus-visible {
   cursor: pointer;
 }
 
-.planner-identity-fields { grid-template-columns: 1.35fr 1fr; }
+.planner-identity-fields { grid-template-columns: 1fr; }
 
 .range-setting {
   background: rgba(5, 8, 6, 0.28);
@@ -1429,6 +1441,7 @@ input:focus-visible {
 }
 
 .range-grid { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+.session-range-setting { max-width: none; }
 .range-heading { align-items: flex-start; display: flex; justify-content: space-between; }
 .range-heading > div { display: grid; gap: 4px; }
 .range-heading span, .range-control > span { color: var(--dim); font-size: 9px; font-weight: 720; letter-spacing: 0.07em; text-transform: uppercase; }
@@ -1492,6 +1505,14 @@ input:focus-visible {
 
 .plan-reminder-choice { align-items: center; color: var(--muted); cursor: pointer; display: flex; font-size: 10px; gap: 8px; margin-top: 16px; }
 .plan-reminder-choice input { accent-color: var(--lime); }
+
+.planner-more-settings { border: 1px solid var(--line); border-radius: 12px; margin-top: 14px; overflow: hidden; }
+.planner-more-settings > summary { align-items: center; color: #d5ddd3; cursor: pointer; display: flex; font-size: 11px; font-weight: 720; justify-content: space-between; list-style: none; padding: 13px 14px; }
+.planner-more-settings > summary::-webkit-details-marker { display: none; }
+.planner-more-settings > summary small { color: var(--dim); font-size: 9px; font-weight: 500; margin-left: auto; }
+.planner-more-settings > summary::after { color: var(--lime); content: "+"; font-size: 15px; margin-left: 12px; }
+.planner-more-settings[open] > summary::after { content: "−"; }
+.planner-more-content { background: rgba(204, 255, 120, 0.025); border-top: 1px solid var(--line); padding: 2px 14px 14px; }
 
 .agent-plan-preview { align-self: center; }
 .queued-retrieval { background: rgba(204, 255, 120, 0.045); border: 1px solid rgba(204, 255, 120, 0.13); border-radius: 14px; display: grid; gap: 9px; margin-top: 28px; padding: 18px; }
@@ -1735,6 +1756,7 @@ input:focus-visible {
   }
 
   .pattern-switch { grid-template-columns: 1fr; }
+  .planner-more-settings > summary small { display: none; }
 
   .notes-workspace {
     display: block;

@@ -10,7 +10,7 @@ import { useLocale } from "../locale";
 import NoteFlowApp from "../noteflow-app";
 
 export function GuestWorkspace() {
-  const { t } = useLocale();
+  const { setLocale, t } = useLocale();
   const [agentHandoff, setAgentHandoff] = useState<HackathonHandoff | null>(null);
   const getAccessToken = useCallback(async () => null, []);
   const onSignOut = useCallback(async () => undefined, []);
@@ -27,12 +27,15 @@ export function GuestWorkspace() {
     if (!raw) return;
     try {
       const parsed = JSON.parse(raw) as unknown;
-      if (isHackathonHandoff(parsed)) setAgentHandoff(parsed);
+      if (isHackathonHandoff(parsed)) {
+        setLocale(parsed.locale);
+        setAgentHandoff(parsed);
+      }
     } catch {
       // Remove an invalid handoff and open the normal guest workspace.
       window.localStorage.removeItem(hackathonHandoffKey);
     }
-  }, []);
+  }, [setLocale]);
 
   return (
     <NoteFlowApp

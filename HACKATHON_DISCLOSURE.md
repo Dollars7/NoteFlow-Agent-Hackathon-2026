@@ -51,6 +51,8 @@ As of 2026-08-22, the contest-period Google agent system is live in entrant-owne
 - The Google ADK API server runs on Cloud Run with Gemini 3.5 Flash through Vertex AI.
 - Each model mutation writes both a current Firestore document and an immutable version.
 - Pub/Sub delivers safe-digest background jobs to a separate private Cloud Run worker using OIDC.
-- The public Sites frontend reaches the ADK service only through a same-origin server proxy; the browser never receives the shared Cloud Run credential.
+- The public Vercel frontend reaches the ADK service only through a same-origin server proxy; the browser never receives the shared Cloud Run credential.
 - A judge-safe end-to-end run persisted mutation `9aPqpj5FpIXwgGf89HVQ`, queued Pub/Sub message `21517632790505643`, and completed the corresponding background analysis.
 - The full pre-existing retrieval-first learning workspace is available separately as a no-account `/demo` route and remains disclosed as pre-existing work.
+- Firestore is the source of truth for contest-period Agent model mutations. The public guest handoff and retrieval state stay in the current browser, while the initial skills and cards are disclosed pre-existing demo seed data.
+- Supabase is used for authentication in the pre-existing account route. Cloudflare D1 is that route's workspace persistence layer and is not mounted on the Vercel judge deployment.

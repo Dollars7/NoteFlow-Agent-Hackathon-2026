@@ -110,12 +110,15 @@ export async function POST(request: NextRequest) {
   }
 
   const locale = body.locale === "zh" ? "zh" : "en";
+  const responseLanguage = locale === "zh"
+    ? "Response language: Simplified Chinese only. Do not add English translations or bilingual headings; use English only for unavoidable technical proper nouns and identifiers."
+    : "Response language: English only. Do not use Chinese words, translations, or bilingual headings.";
   const action = cleanChoice(body.action, ["plan", "clarification", "feedback"] as const, "plan");
   const goal = cleanText(body.goal, 400);
   const notes = cleanText(body.notes, 12_000);
   const clarification = cleanText(body.clarification, 1_000);
   if (action === "plan" && (!goal || !notes)) {
-    return NextResponse.json({ error: locale === "zh" ? "请填写学习目标和来源笔记。" : "A learning goal and source notes are required." }, { status: 400 });
+    return NextResponse.json({ error: locale === "zh" ? "请填写学习目标，并至少写下一条学习材料或卡点。" : "Add a learning goal and at least one note or stuck point." }, { status: 400 });
   }
 
   const rawContext = body.learnerContext && typeof body.learnerContext === "object"
@@ -183,7 +186,7 @@ export async function POST(request: NextRequest) {
       };
       prompt = [
         `Learner ID: ${userId}`,
-        `Response language: ${locale === "zh" ? "Simplified Chinese, including every section heading." : "English."}`,
+        responseLanguage,
         "This is real retrieval feedback from the NoteFlow practice flow:",
         JSON.stringify(practice, null, 2),
         "Reassess the learner's sustainable rhythm and knowledge path from this evidence. Call persist_learning_model with the revised rhythm. Explain the before-to-after rhythm change, set the next invitation, and choose exactly one next retrieval prompt.",
@@ -194,21 +197,21 @@ export async function POST(request: NextRequest) {
       }
       prompt = [
         `Learner ID: ${userId}`,
-        `Response language: ${locale === "zh" ? "Simplified Chinese, including every section heading." : "English."}`,
+        responseLanguage,
         `Learner clarification: ${clarification}`,
         "Use this answer to finish the sustainable rhythm, persist it, set one next invitation, and choose exactly one next retrieval prompt.",
       ].join("\n\n");
     } else {
       prompt = [
         `Learner ID: ${userId}`,
-        `Response language: ${locale === "zh" ? "Simplified Chinese, including every section heading." : "English."}`,
+        responseLanguage,
         `Learning goal: ${goal}`,
         "Learner-controlled context:",
         JSON.stringify(learnerContext, null, 2),
         "Messy source notes:",
         notes,
         "Infer an adjustable plan from this natural-language input before choosing the retrieval. Create planSettings with a continuous steady-to-sprint pace bias, session-duration range, invitation-frequency range, pattern, energy window, optional role baseline, and evidence-grounded themes. These ranges guide invitations, never limit voluntary learning. If essential decision-changing context is still absent, return only one CLARIFICATION question. Otherwise persist the plan, rhythm, and knowledge model; set one next invitation; and give exactly one next retrieval prompt.",
-        "Use the requested response language for every user-facing sentence while keeping tool arguments accurate.",
+        "Use the requested response language for every user-facing sentence while keeping tool arguments accurate. Keep the report concise; the structured tool call is the detailed source of truth.",
       ].join("\n\n");
     }
 
