@@ -16,8 +16,8 @@ export async function generateMetadata(): Promise<Metadata> {
     description:
       "An AI learning conductor that chooses the next best action for your goal.",
     icons: {
-      icon: "/favicon.svg",
-      shortcut: "/favicon.svg",
+      icon: [{ url: "/noteflow-icon.png", type: "image/png" }],
+      shortcut: "/noteflow-icon.png",
     },
     openGraph: {
       title: "NoteFlow — Don’t plan. Just flow.",
