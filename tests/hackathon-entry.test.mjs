@@ -25,6 +25,7 @@ test("declares the mandatory Google agent stack and honest preview behavior", as
   assert.match(agent, /new LlmAgent/);
   assert.match(agent, /name: 'persist_learning_model'/);
   assert.match(agent, /retrievalCards: z\.array\(retrievalCardSchema\)/);
+  assert.match(agent, /retrievalCards: z\.array\(retrievalCardSchema\)\.min\(1\)\.max\(8\)/);
   assert.match(agent, /theme: z\.string\(\)\.min\(1\)/);
   assert.match(agent, /batch\.create\(versionRef, payload\)/);
   assert.match(agent, /name: 'queue_deep_analysis'/);

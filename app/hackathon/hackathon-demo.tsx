@@ -6,7 +6,6 @@ import {
   extractAgentText,
   extractExplicitPlanningSignals,
   extractGeneratedPlan,
-  extractNextRetrieval,
   createRetrievalTitle,
   hackathonHandoffKey,
   normalizeGeneratedPlan,
@@ -208,10 +207,7 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
     explicitPlanningSignals,
   }), [constraints, daysPerWeek, energyWindow, explicitPlanningSignals, learningPreferences, preferredTime, reminderOptIn, sessionMinutes, startDate, startMode, studyPattern, targetDate]);
   const evidenceMissing = notes.trim().length === 0;
-  const nextRetrieval = useMemo(
-    () => agentText ? extractNextRetrieval(agentText, resultLocale ?? locale) : "",
-    [agentText, locale, resultLocale],
-  );
+  const nextRetrieval = generatedPlan?.retrievalCards[0]?.prompt ?? "";
   const markdownDownloadHref = useMemo(() => {
     if (!agentText) return "";
     const markdownDocument = [

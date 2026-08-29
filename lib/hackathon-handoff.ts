@@ -353,24 +353,6 @@ export function extractAgentSection(report: string, headings: string[]): string 
   return collected.join("\n").trim();
 }
 
-export function extractNextRetrieval(report: string, locale: Locale): string {
-  const extracted = extractAgentSection(report, ["next retrieval", "下一次检索"]);
-  if (extracted) {
-    return extracted
-      .replace(/^\s*(?:>\s*|(?:[-+*]|\d+\.)\s+)/gm, "")
-      .replace(/\*\*([^*]+)\*\*/g, "$1")
-      .replace(/\*([^*]+)\*/g, "$1")
-      .replace(/_([^_]+)_/g, "$1")
-      .replace(/`([^`]+)`/g, "$1")
-      .replace(/\s+/g, " ")
-      .trim();
-  }
-
-  return locale === "zh"
-    ? "不看笔记，用自己的话说明最重要的概念、权衡以及你会采取的下一步。"
-    : "Without looking at the notes, explain the most important concept, tradeoff, and next decision in your own words.";
-}
-
 export function isHackathonHandoff(value: unknown): value is HackathonHandoff {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<HackathonHandoff>;

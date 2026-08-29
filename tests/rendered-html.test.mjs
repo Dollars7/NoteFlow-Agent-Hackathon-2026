@@ -358,7 +358,9 @@ test("defaults to English, keeps Chinese in place, and reviews Agent plans befor
   assert.match(handoff, /dailyMinutes/);
   assert.match(handoff, /extractGeneratedPlan/);
   assert.match(handoff, /type RhythmRevision/);
-  assert.match(handoff, /extractNextRetrieval/);
+  assert.doesNotMatch(handoff, /extractNextRetrieval/);
+  assert.doesNotMatch(hackathonDemo, /extractNextRetrieval/);
+  assert.match(hackathonDemo, /generatedPlan\?\.retrievalCards\[0\]\?\.prompt/);
   assert.match(handoff, /retrievalCards: RetrievalCard\[\]/);
   assert.match(handoff, /normalizeRetrievalCards/);
   assert.match(proxy, /Response language/);
@@ -371,7 +373,7 @@ test("defaults to English, keeps Chinese in place, and reviews Agent plans befor
   assert.match(proxy, /inspectPersistCall/);
   assert.match(proxy, /Agent correction failed/);
   assert.match(proxy, /\[FORCE_PERSIST_TOOL\]/);
-  assert.match(proxy, /planSettings\.retrievalCards with 3–8 complete cards/);
+  assert.match(proxy, /planSettings\.retrievalCards with 1–8 complete cards/);
   assert.match(goalPlanner, /invitationsPerWeekMin === profile\.invitationsPerWeekMax/);
   assert.match(hackathonDemo, /generatedInvitationFrequency/);
 });
