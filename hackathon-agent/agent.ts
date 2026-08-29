@@ -63,6 +63,16 @@ const rhythmPlanSchema = z.object({
   notificationMode: z.enum(['calendar', 'browser', 'in-app', 'off']),
 });
 
+const retrievalCardSchema = z.object({
+  theme: z.string().min(1).describe('Must exactly match one value in planSettings.themes.'),
+  mode: z.enum(['recall', 'speak', 'solve', 'design']),
+  prompt: z.string().min(1).describe('The front of the card: a question that requires an attempt, never a topic label.'),
+  hintKeywords: z.array(z.string().min(1)).max(4),
+  expectedAnswer: z.string().min(1),
+  noteMarkdown: z.string().min(1).describe('The explanatory back of the card with an example, written in Markdown.'),
+  languageCode: z.string().optional().describe('BCP-47 language code; required for language-learning cards.'),
+});
+
 const planSettingsSchema = z.object({
   goalTitle: z.string().min(1).describe('A concise goal inferred from the learner language.'),
   roleBaseline: z.string().describe('An inferred role or exam baseline, or an empty string when none is supported.'),
@@ -82,12 +92,13 @@ const planSettingsSchema = z.object({
   targetDate: optionalDateSchema,
   timeZone: z.string(),
   rationale: z.string().min(1).describe('A concise, evidence-grounded explanation of the inferred settings.'),
+  retrievalCards: z.array(retrievalCardSchema).min(3).max(8),
 });
 
 const persistLearningModel = new FunctionTool({
   name: 'persist_learning_model',
   description:
-    'Persists an auditable version of the learner knowledge model in Firestore after synthesis changes concepts, gaps, prerequisites, or the next retrieval prompt.',
+    'Persists an auditable version of the learner knowledge model in Firestore after synthesis changes concepts, gaps, prerequisites, or structured retrieval cards.',
   parameters: z.object({
     learnerId: z.string().min(1),
     goal: z.string().min(1),
@@ -97,9 +108,6 @@ const persistLearningModel = new FunctionTool({
     learnerContext: learnerContextSchema,
     rhythmPlan: rhythmPlanSchema,
     planSettings: planSettingsSchema,
-    nextRetrievalPrompts: z.array(z.string().min(1)).min(2).max(8).describe(
-      'An ordered retrieval queue. Create one attempt-based prompt per inferred theme; when there is only one theme, create two distinct retrieval angles.',
-    ),
     mutationSummary: z.string().min(1),
   }),
   execute: async (input) => {
@@ -191,12 +199,12 @@ Operating contract:
 2. If essential decision-changing context is genuinely absent, return only a CLARIFICATION section containing exactly one concise question and stop. Do not ask for information that would not change the rhythm or retrieval path.
 3. Otherwise infer an adjustable plan from the learner's natural language before selecting content. Treat the goal, source notes, learning preferences, constraints, clarification, and explicitPlanningSignals as one merged instruction. Explicit numeric/date/time statements override defaults. Preserve the distinction between a daily total budget and a per-session duration: “one hour a day” means dailyMinutes=60, not necessarily a 60-minute session. Persist planSettings with: a continuous pace bias between steady and sprint, a flexible session-duration range, an invitation-frequency range, daily time budget, start mode/date/time, target date, time zone, pattern, energy window, optional role baseline, and inferred themes. Ranges guide invitations and session stopping points; they never cap how often the learner may voluntarily study. Treat numeric learnerContext fields as safe fallbacks only when the merged instruction has no explicit signal. A missed invitation never becomes overdue work. When startMode is undecided, set notificationMode to off and do not imply that a reminder has been scheduled.
 4. Infer concepts, gaps, and prerequisite relationships. Separate direct evidence from inference.
-5. Create an ordered queue of 2–8 retrieval prompts that require attempts, not recognition. Produce one prompt for each inferred theme; if there is only one theme, produce two distinct retrieval angles for it. Keep every prompt independently usable as a NoteFlow card.
+5. Create 3–8 structured retrievalCards inside planSettings. Every card.theme must exactly match one value in planSettings.themes. Every prompt must require an attempt, never recognition or a topic label. For language-learning goals, default to mode "speak", include a BCP-47 languageCode, and include a target-language example plus its response-language meaning in noteMarkdown. The cards are content, not a ranked queue; NoteFlow ranks them later.
 6. Call persist_learning_model whenever you create or revise either the knowledge model or learning rhythm. Include learnerContext, rhythmPlan, and planSettings. Ensure each maximum is greater than or equal to its minimum. Never claim persistence unless the tool reports status "persisted".
 7. When retrieval feedback arrives, compare the prior rhythm with the new evidence, revise only what the evidence supports, and explain the before-to-after change.
 8. Call queue_deep_analysis only when useful work can continue asynchronously. Never claim a job is queued unless the tool reports status "queued".
 9. Keep private source material out of Pub/Sub; send only a safe digest.
 
-For completed planning and feedback turns, return six short sections in this exact order: DIAGNOSIS, RHYTHM PLAN, NEXT INVITATION, NEXT RETRIEVAL, MODEL MUTATION, BACKGROUND WORK. In NEXT RETRIEVAL, show the ordered prompts as a numbered list matching nextRetrievalPrompts. State tool status truthfully. Do not expose hidden chain-of-thought.`,
+For completed planning and feedback turns, return six short sections in this exact order: DIAGNOSIS, RHYTHM PLAN, NEXT INVITATION, NEXT RETRIEVAL, MODEL MUTATION, BACKGROUND WORK. In NEXT RETRIEVAL, list only the retrievalCards prompts; do not repeat expected answers or noteMarkdown. State tool status truthfully. Do not expose hidden chain-of-thought.`,
   tools: [persistLearningModel, queueDeepAnalysis],
 });

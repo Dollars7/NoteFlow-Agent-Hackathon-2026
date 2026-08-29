@@ -7,7 +7,6 @@ import {
   extractExplicitPlanningSignals,
   extractGeneratedPlan,
   extractNextRetrieval,
-  extractNextRetrievalPrompts,
   createRetrievalTitle,
   hackathonHandoffKey,
   normalizeGeneratedPlan,
@@ -79,6 +78,12 @@ const previewGeneratedPlans: Record<Locale, GeneratedPlanSettings> = {
     targetDate: "",
     timeZone: "America/Phoenix",
     rationale: "A near-term interview and busy weekdays favor short, frequent verbal retrieval with stronger goal relevance.",
+    retrievalCards: [
+      { theme: "Database sharding", mode: "design", prompt: "Choose a partition key for a fast-growing checkout service and explain the hotspot you are preventing.", hintKeywords: ["partition key", "hotspot"], expectedAnswer: "Choose a high-cardinality key aligned with access patterns and explain how it spreads writes without making cross-shard queries dominant.", noteMarkdown: "## Partition-key judgment\n\nA useful answer connects **cardinality**, access patterns, and hotspot risk with a concrete trade-off." },
+      { theme: "CAP trade-offs", mode: "design", prompt: previewPlans.en.nextPrompt, hintKeywords: ["partition", "availability", "consistency"], expectedAnswer: "State which guarantee you relax during the partition, why the business can tolerate it, and how reconciliation is exposed to users.", noteMarkdown: "## Make the trade-off explicit\n\nName the sacrificed guarantee, the user-visible failure mode, and the reconciliation path." },
+      { theme: "Raft consensus", mode: "recall", prompt: "Without notes, explain why Raft needs a majority before a leader can commit an entry.", hintKeywords: ["majority", "commit", "leader"], expectedAnswer: "Majority overlap ensures a committed entry survives leadership changes and is visible to a future leader.", noteMarkdown: "## Majority overlap\n\nTwo majorities must intersect, which carries committed state across elections." },
+      { theme: "Cache consistency", mode: "design", prompt: "Design cache invalidation for a product-price update and name the stale-read failure you will accept.", hintKeywords: ["invalidation", "stale read"], expectedAnswer: "Define the source of truth, invalidation or version strategy, and a bounded stale-read behavior.", noteMarkdown: "## Cache contract\n\nA design is complete only when it states how stale data is bounded and recovered." },
+    ],
   },
   zh: {
     goalTitle: "在 21 天内通过高级后端系统面试",
@@ -99,6 +104,12 @@ const previewGeneratedPlans: Record<Locale, GeneratedPlanSettings> = {
     targetDate: "",
     timeZone: "America/Phoenix",
     rationale: "近期面试目标和繁忙工作日更适合少量多次的口述检索，并提高目标相关内容的权重。",
+    retrievalCards: [
+      { theme: "数据库分片", mode: "design", prompt: "为快速增长的结账服务选择一个分片键，并说明你要避免哪一种热点。", hintKeywords: ["分片键", "热点"], expectedAnswer: "选择与访问模式一致、基数足够高的键，并说明它如何分散写入且避免跨分片查询成为主路径。", noteMarkdown: "## 分片键判断\n\n完整答案需要连接**基数**、访问模式和热点风险，并明确一个取舍。" },
+      { theme: "CAP 权衡", mode: "design", prompt: previewPlans.zh.nextPrompt, hintKeywords: ["网络分区", "可用性", "一致性"], expectedAnswer: "明确在分区期间放宽的保证、业务为何能接受，以及如何向用户呈现并最终协调冲突。", noteMarkdown: "## 明确取舍\n\n说清牺牲的保证、用户可见的故障模式和恢复路径。" },
+      { theme: "Raft 共识", mode: "recall", prompt: "不看笔记，解释 Raft 为什么需要多数节点确认后才能提交日志。", hintKeywords: ["多数", "提交", "领导者"], expectedAnswer: "多数集合必然相交，因此已经提交的日志可以跨越领导者切换并被下一任领导者继承。", noteMarkdown: "## 多数集合相交\n\n任意两个多数集合至少共享一个节点，这让已提交状态能跨选举保留下来。" },
+      { theme: "缓存一致性", mode: "design", prompt: "为商品价格更新设计缓存失效方案，并说明你愿意接受哪一种陈旧读取。", hintKeywords: ["失效", "陈旧读取"], expectedAnswer: "明确真实数据源、失效或版本策略，以及陈旧读取的边界和恢复方式。", noteMarkdown: "## 缓存契约\n\n只有说明陈旧数据如何被限制并恢复，方案才算完整。" },
+    ],
   },
 };
 
@@ -164,7 +175,6 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
   const [rhythmPlan, setRhythmPlan] = useState("");
   const [nextInvitation, setNextInvitation] = useState("");
   const [generatedPlan, setGeneratedPlan] = useState<GeneratedPlanSettings | null>(null);
-  const [retrievalPrompts, setRetrievalPrompts] = useState<string[]>([]);
   const [progressStep, setProgressStep] = useState(0);
   const [resultLocale, setResultLocale] = useState<Locale | null>(null);
   const [localeNotice, setLocaleNotice] = useState("");
@@ -226,7 +236,6 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
     setRhythmPlan("");
     setNextInvitation("");
     setGeneratedPlan(null);
-    setRetrievalPrompts([]);
     setResultLocale(null);
     setProgressStep(0);
     setStage("intake");
@@ -291,7 +300,6 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
       setRhythmPlan("");
       setNextInvitation("");
       setGeneratedPlan(null);
-      setRetrievalPrompts([]);
       setResultLocale(null);
     }
 
@@ -309,7 +317,6 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
         setAgentText(previewReport);
         setRhythmPlan(preview.rhythm);
         setNextInvitation(preview.invitation);
-        setRetrievalPrompts(extractNextRetrievalPrompts(null, previewReport, previewPlan.themes, requestLocale));
         applyGeneratedPlan(previewPlan);
         setResultLocale(requestLocale);
         stopProgress(4);
@@ -351,7 +358,6 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
       }
       const plan = extractGeneratedPlan(payload.events, { goal, locale: requestLocale, learnerContext });
       applyGeneratedPlan(plan);
-      setRetrievalPrompts(extractNextRetrievalPrompts(payload.events, report, plan.themes, requestLocale));
       setRhythmPlan(extractAgentSection(report, ["rhythm plan", "学习节奏"]));
       setNextInvitation(extractAgentSection(report, ["next invitation", "下次邀请"]));
       stopProgress(4);
@@ -371,10 +377,15 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
     const handoffLocale = resultLocale ?? locale;
     const finalPlan = generatedPlan ?? normalizeGeneratedPlan(null, { goal: goal.trim(), locale: handoffLocale, learnerContext });
     const projectId = `learning-project-${Date.now()}`;
-    const prompts = retrievalPrompts.length > 0
-      ? retrievalPrompts
-      : extractNextRetrievalPrompts(null, agentText, finalPlan.themes, handoffLocale);
-    const retrievalPrompt = prompts[0];
+    const retrievalCards = finalPlan.retrievalCards;
+    if (retrievalCards.length === 0) {
+      setLocaleNotice(t(
+        "The Agent did not return any complete retrieval cards. Run the plan again.",
+        "Agent 没有返回完整的检索卡片，请重新生成计划。",
+      ));
+      return;
+    }
+    const retrievalPrompt = retrievalCards[0].prompt;
     const knowledgeAreas = projectKnowledgeAreas(finalPlan.themes);
     const handoff: HackathonHandoff = {
       id: projectId,
@@ -382,7 +393,7 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
       goal: goal.trim(),
       sourceNotes: notes.trim(),
       title: createRetrievalTitle(retrievalPrompt, finalPlan.themes, handoffLocale),
-      nextRetrievalPrompts: prompts,
+      retrievalCards,
       agentReport: agentText,
       continuationToken,
       learnerContext,

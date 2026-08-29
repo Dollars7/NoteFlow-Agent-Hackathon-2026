@@ -218,7 +218,7 @@ export async function POST(request: NextRequest) {
         responseLanguage,
         "This is real retrieval feedback from the NoteFlow practice flow:",
         JSON.stringify(practice, null, 2),
-        "Reassess the learner's sustainable rhythm and knowledge path from this evidence. Call persist_learning_model with the revised rhythm. Explain the before-to-after rhythm change, set the next invitation, and return an ordered nextRetrievalPrompts queue with one attempt-based prompt per inferred theme (2–8 prompts total).",
+        "Reassess the learner's sustainable rhythm and knowledge path from this evidence. Call persist_learning_model with the revised rhythm. Explain the before-to-after rhythm change, set the next invitation, and return 3–8 structured retrievalCards in planSettings. Every card.theme must exactly match a plan theme so NoteFlow can update the correct skill.",
       ].join("\n\n");
     } else if (action === "clarification") {
       if (!clarification) {
@@ -230,7 +230,7 @@ export async function POST(request: NextRequest) {
         `Learner clarification: ${clarification}`,
         "Updated merged learner context:",
         JSON.stringify(learnerContext, null, 2),
-        "Treat this answer and the updated context as part of the same instruction. Explicit numeric, date, and time statements override earlier defaults. Keep daily total time separate from per-session length. Use this answer to finish the sustainable rhythm, persist it, set one next invitation, and return an ordered nextRetrievalPrompts queue with one attempt-based prompt per inferred theme (2–8 prompts total).",
+        "Treat this answer and the updated context as part of the same instruction. Explicit numeric, date, and time statements override earlier defaults. Keep daily total time separate from per-session length. Use this answer to finish the sustainable rhythm, persist it, set one next invitation, and return 3–8 structured retrievalCards in planSettings. Every card.theme must exactly match a plan theme so NoteFlow can update the correct skill.",
       ].join("\n\n");
     } else {
       prompt = [
@@ -242,7 +242,7 @@ export async function POST(request: NextRequest) {
         "Messy source notes:",
         notes,
         "Treat the goal, notes, learning preferences, constraints, and explicitPlanningSignals as one merged instruction. Explicit numeric, date, and time statements always override defaults. Preserve the distinction between daily total time and per-session length; for example, “one hour a day” means dailyMinutes=60 and does not by itself require a 60-minute session. If two explicit statements conflict and the choice changes the plan, ask one clarification.",
-        "Infer an adjustable plan before choosing retrievals. Create planSettings with a continuous steady-to-sprint pace bias, session-duration range, invitation-frequency range, daily time budget, start mode/date/time, target date, time zone, optional role baseline, and evidence-grounded themes. These ranges guide invitations, never limit voluntary learning. Never create or imply a scheduled reminder while startMode is undecided. If essential decision-changing context is still absent, return only one CLARIFICATION question. Otherwise persist the plan, rhythm, and knowledge model; set one next invitation; and return an ordered nextRetrievalPrompts queue with one independently usable, attempt-based prompt per inferred theme (2–8 prompts total).",
+        "Infer an adjustable plan before choosing retrievals. Create planSettings with a continuous steady-to-sprint pace bias, session-duration range, invitation-frequency range, daily time budget, start mode/date/time, target date, time zone, optional role baseline, evidence-grounded themes, and 3–8 structured retrievalCards. Every card.theme must exactly match one plan theme; its prompt must require an attempt rather than name a topic. For language goals default to speak mode, include languageCode, and place a target-language example plus its meaning in noteMarkdown. These ranges guide invitations, never limit voluntary learning. Never create or imply a scheduled reminder while startMode is undecided. If essential decision-changing context is still absent, return only one CLARIFICATION question. Otherwise persist the plan, rhythm, and knowledge model and set one next invitation.",
         "Use the requested response language for every user-facing sentence while keeping tool arguments accurate. Keep the report concise; the structured tool call is the detailed source of truth.",
       ].join("\n\n");
     }

@@ -52,6 +52,17 @@ export type GeneratedPlanSettings = {
   targetDate: string;
   timeZone: string;
   rationale: string;
+  retrievalCards: RetrievalCard[];
+};
+
+export type RetrievalCard = {
+  theme: string;
+  mode: "recall" | "speak" | "solve" | "design";
+  prompt: string;
+  hintKeywords: string[];
+  expectedAnswer: string;
+  noteMarkdown: string;
+  languageCode?: string;
 };
 
 export type LearningProject = {
@@ -90,7 +101,7 @@ export type HackathonHandoff = {
   goal: string;
   sourceNotes: string;
   title: string;
-  nextRetrievalPrompts: string[];
+  retrievalCards: RetrievalCard[];
   agentReport: string;
   continuationToken?: string;
   learnerContext?: LearnerContext;
@@ -109,6 +120,34 @@ const clampInteger = (value: unknown, fallback: number, min: number, max: number
 const cleanString = (value: unknown, fallback = "") => typeof value === "string" && value.trim()
   ? value.trim()
   : fallback;
+
+function normalizeRetrievalCards(value: unknown, themes: string[]): RetrievalCard[] {
+  if (!Array.isArray(value)) return [];
+  const exactThemes = new Map(themes.map((theme) => [theme.trim().toLocaleLowerCase(), theme.trim()]));
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const source = item as Record<string, unknown>;
+    const theme = exactThemes.get(cleanString(source.theme).toLocaleLowerCase());
+    const mode = cleanString(source.mode);
+    const prompt = cleanString(source.prompt);
+    const expectedAnswer = cleanString(source.expectedAnswer);
+    const noteMarkdown = cleanString(source.noteMarkdown);
+    if (!theme || !["recall", "speak", "solve", "design"].includes(mode) || !prompt || !expectedAnswer || !noteMarkdown) return [];
+    const hintKeywords = Array.isArray(source.hintKeywords)
+      ? source.hintKeywords.map((keyword) => cleanString(keyword)).filter(Boolean).slice(0, 4)
+      : [];
+    const languageCode = cleanString(source.languageCode);
+    return [{
+      theme,
+      mode: mode as RetrievalCard["mode"],
+      prompt,
+      hintKeywords,
+      expectedAnswer,
+      noteMarkdown,
+      ...(languageCode ? { languageCode } : {}),
+    }];
+  }).slice(0, 8);
+}
 
 const minutesFromMatch = (amount: string, unit: string) => {
   const parsed = Number(amount);
@@ -184,6 +223,11 @@ export function normalizeGeneratedPlan(
   const sourceThemes = Array.isArray(source.themes)
     ? source.themes.map((theme) => cleanString(theme)).filter(Boolean).slice(0, 8)
     : [];
+  const themes = sourceThemes.length > 0
+    ? sourceThemes
+    : fallback.locale === "zh"
+      ? ["核心概念", "应用与权衡"]
+      : ["Core concepts", "Applied trade-offs"];
   const sprintLanguage = /interview|exam|deadline|days?|weeks?|面试|考试|截止|天|周/i.test(fallback.goal);
   const startMode = fallback.learnerContext.startMode !== "undecided"
     ? fallback.learnerContext.startMode
@@ -199,11 +243,7 @@ export function normalizeGeneratedPlan(
   return {
     goalTitle: cleanString(source.goalTitle, fallback.goal),
     roleBaseline: cleanString(source.roleBaseline),
-    themes: sourceThemes.length > 0
-      ? sourceThemes
-      : fallback.locale === "zh"
-        ? ["核心概念", "应用与权衡"]
-        : ["Core concepts", "Applied trade-offs"],
+    themes,
     paceBias: clampInteger(source.paceBias, sprintLanguage ? 72 : 32, 0, 100),
     sessionMinutesMin: sessionMin,
     sessionMinutesMax: sessionMax,
@@ -231,6 +271,7 @@ export function normalizeGeneratedPlan(
         ? "根据你的目标、学习偏好和现实限制生成；你可以在开始前调整。"
         : "Generated from your goal, learning preferences, and real constraints; adjustable before you begin.",
     ),
+    retrievalCards: normalizeRetrievalCards(source.retrievalCards, themes),
   };
 }
 
@@ -330,88 +371,6 @@ export function extractNextRetrieval(report: string, locale: Locale): string {
     : "Without looking at the notes, explain the most important concept, tradeoff, and next decision in your own words.";
 }
 
-function cleanRetrievalPrompts(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  const seen = new Set<string>();
-  return value
-    .map((prompt) => cleanString(prompt)
-      .replace(/^\s*(?:>\s*|(?:[-+*]|\d+[.)])\s+)/, "")
-      .replace(/\*\*([^*]+)\*\*/g, "$1")
-      .replace(/\*([^*]+)\*/g, "$1")
-      .replace(/_([^_]+)_/g, "$1")
-      .replace(/`([^`]+)`/g, "$1")
-      .replace(/\s+/g, " ")
-      .trim())
-    .filter((prompt) => {
-      if (!prompt || seen.has(prompt)) return false;
-      seen.add(prompt);
-      return true;
-    })
-    .slice(0, 8);
-}
-
-function fallbackRetrievalPrompts(
-  report: string,
-  themes: string[],
-  locale: Locale,
-): string[] {
-  const primary = extractNextRetrieval(report, locale);
-  const usableThemes = themes.map((theme) => theme.trim()).filter(Boolean).slice(0, 8);
-  const prompts = usableThemes.map((theme, index) => index === 0
-    ? primary
-    : locale === "zh"
-      ? `不看笔记，用自己的话解释“${theme}”，说明一个关键判断，并举出一个具体应用。`
-      : `Without looking at the notes, explain “${theme}” in your own words, make one key judgment, and give one concrete application.`);
-
-  if (prompts.length >= 2) return prompts;
-  return [
-    primary,
-    locale === "zh"
-      ? `不看笔记，从另一个角度应用“${usableThemes[0] || "这个主题"}”，并说出你最不确定的一步。`
-      : `Without looking at the notes, apply “${usableThemes[0] || "this theme"}” from a different angle and name the step you are least certain about.`,
-  ];
-}
-
-export function extractNextRetrievalPrompts(
-  events: unknown,
-  report: string,
-  themes: string[],
-  locale: Locale,
-): string[] {
-  if (Array.isArray(events)) {
-    for (const event of events) {
-      if (!event || typeof event !== "object") continue;
-      const parts = (event as { content?: { parts?: unknown[] } }).content?.parts;
-      if (!Array.isArray(parts)) continue;
-      for (const part of parts) {
-        if (!part || typeof part !== "object") continue;
-        const candidate = part as {
-          functionCall?: { name?: unknown; args?: unknown; arguments?: unknown };
-          function_call?: { name?: unknown; args?: unknown; arguments?: unknown };
-        };
-        const call = candidate.functionCall ?? candidate.function_call;
-        if (call?.name !== "persist_learning_model") continue;
-        let args = call.args ?? call.arguments;
-        if (typeof args === "string") {
-          try { args = JSON.parse(args) as unknown; } catch { args = null; }
-        }
-        if (args && typeof args === "object") {
-          const prompts = cleanRetrievalPrompts((args as { nextRetrievalPrompts?: unknown }).nextRetrievalPrompts);
-          if (prompts.length > 0) return prompts;
-        }
-      }
-    }
-  }
-
-  const section = extractAgentSection(report, ["next retrieval", "下一次检索"]);
-  const sectionPrompts = cleanRetrievalPrompts(section
-    .split(/\r?\n/)
-    .filter((line) => /^\s*(?:[-+*]|\d+[.)])\s+/.test(line)));
-  return sectionPrompts.length > 0
-    ? sectionPrompts
-    : fallbackRetrievalPrompts(report, themes, locale);
-}
-
 export function isHackathonHandoff(value: unknown): value is HackathonHandoff {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<HackathonHandoff>;
@@ -419,8 +378,8 @@ export function isHackathonHandoff(value: unknown): value is HackathonHandoff {
     candidate.id &&
     (candidate.locale === "en" || candidate.locale === "zh") &&
     candidate.goal &&
-    Array.isArray(candidate.nextRetrievalPrompts) &&
-    candidate.nextRetrievalPrompts.length > 0 &&
+    Array.isArray(candidate.retrievalCards) &&
+    candidate.retrievalCards.length > 0 &&
     candidate.agentReport,
   );
 }

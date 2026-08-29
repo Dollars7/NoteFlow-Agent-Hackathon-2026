@@ -185,7 +185,7 @@ function AgentPlanPreview({
       <div className="queued-retrieval">
         <span>{t("Agent-selected", "Agent 已选择")}</span>
         <strong>{handoff.title}</strong>
-        <p>{handoff.nextRetrievalPrompts[0]}</p>
+        <p>{handoff.retrievalCards[0]?.prompt}</p>
       </div>
       {themes.length > 0 && (
         <div className="preview-themes">
@@ -291,58 +291,35 @@ function projectSkillsForHandoff(handoff: HackathonHandoff): SkillState[] {
   }));
 }
 
-function retrievalModeForHandoff(handoff: HackathonHandoff): NoteCard["mode"] {
-  const text = handoff.goal + "\n" + handoff.nextRetrievalPrompts.join("\n");
-  if (/说|口语|发音|对话|speak|pronounc|conversation|language/i.test(text)) return "speak";
-  if (/设计|架构|权衡|design|architect|trade-?off/i.test(text)) return "design";
-  if (/解决|计算|算法|题目|solve|calculate|algorithm/i.test(text)) return "solve";
-  return "recall";
-}
-
 function projectCardsForHandoff(
   handoff: HackathonHandoff,
   projectSkills: SkillState[],
-  rationale: string,
 ): NoteCard[] {
-  const themes = handoff.generatedPlan?.themes
-    ?? handoff.project?.themes
-    ?? projectSkills.map((skill) => skill.name);
   const projectId = handoff.project?.id ?? handoff.id;
   const projectTag = "project:" + projectId;
-  const fallbackSkill = projectSkills[0] ?? {
-    id: "project-focus",
-    name: handoff.title,
-    mastery: 0.3,
-    retention: 0.3,
-    expression: 0.3,
-    confidence: 0.3,
-  };
-
-  return handoff.nextRetrievalPrompts.map((prompt, index) => {
-    const skill = projectSkills[index % Math.max(projectSkills.length, 1)] ?? fallbackSkill;
-    const theme = themes[index % Math.max(themes.length, 1)] ?? skill.name;
+  return handoff.retrievalCards.map((retrievalCard, index) => {
+    const semanticArea = projectKnowledgeAreas([retrievalCard.theme])[0];
+    const skill = projectSkills.find((candidate) =>
+      candidate.name.trim().toLocaleLowerCase() === retrievalCard.theme.trim().toLocaleLowerCase()
+      || candidate.id === semanticArea?.id);
+    const skillId = skill?.id ?? semanticArea?.id ?? "project-focus";
     const title = index === 0
       ? handoff.title
-      : createRetrievalTitle(prompt, [theme], handoff.locale);
-    const focusLines = [theme, ...themes.filter((item) => item !== theme).slice(0, 2)]
-      .filter(Boolean)
-      .map((item) => `- ${item}`)
-      .join("\n");
+      : createRetrievalTitle(retrievalCard.prompt, [retrievalCard.theme], handoff.locale);
+    const expectedAnswer = handoff.locale === "zh" ? "## 参考答案" : "## Expected answer";
 
     return {
       id: index === 0 ? handoff.id : `${handoff.id}-retrieval-${index + 1}`,
-      skillId: skill.id,
-      tags: ["agent-selected", projectTag, "retrieval", skill.id],
-      mode: retrievalModeForHandoff(handoff),
+      skillId,
+      tags: ["agent-selected", projectTag, "retrieval", skillId],
+      mode: retrievalCard.mode,
       title,
-      prompt,
-      hintKeywords: [theme, ...themes.filter((item) => item !== theme)].filter(Boolean).slice(0, 3),
+      prompt: retrievalCard.prompt,
+      hintKeywords: retrievalCard.hintKeywords,
       scaffold: handoff.locale === "zh"
         ? ["先直接作答，不看笔记。", "说明你为什么这样判断。", "用自己的例子或下一步把答案说完整。"]
         : ["Answer directly without opening the note.", "Explain why you reached that answer.", "Complete it with your own example or next step."],
-      noteMarkdown: handoff.locale === "zh"
-        ? `## 为什么练习这一项\n\n${rationale}\n\n## 本卡重点\n\n${focusLines}`
-        : `## Why this practice\n\n${rationale}\n\n## Card focus\n\n${focusLines}`,
+      noteMarkdown: `${expectedAnswer}\n\n${retrievalCard.expectedAnswer}\n\n${retrievalCard.noteMarkdown}`,
       goalRelevance: Math.max(0.78, 0.95 - index * 0.03),
       dependencyValue: Math.max(0.7, 0.92 - index * 0.04),
       uncertainty: 0.82,
@@ -580,9 +557,6 @@ export default function NoteFlowApp({
     if (!hasRestored || !agentHandoff || appliedHandoffId.current === agentHandoff.id) return;
     appliedHandoffId.current = agentHandoff.id;
     const generatedPlan = agentHandoff.generatedPlan;
-    const rationale = generatedPlan?.rationale || (agentHandoff.locale === "zh"
-      ? "这道练习由 Agent 根据你的目标和卡点选择。"
-      : "The Agent selected this practice from your goal and stuck points.");
     const projectSkills = projectSkillsForHandoff(agentHandoff);
     const primarySkill = projectSkills[0] ?? {
       id: "project-focus",
@@ -592,7 +566,7 @@ export default function NoteFlowApp({
       expression: 0.3,
       confidence: 0.3,
     };
-    const launchCards = projectCardsForHandoff(agentHandoff, projectSkills, rationale);
+    const launchCards = projectCardsForHandoff(agentHandoff, projectSkills);
     const launchCard = launchCards[0];
 
     setGoalProfile((profile) => ({
