@@ -39,6 +39,7 @@ export function GuestWorkspace() {
 
   return (
     <NoteFlowApp
+      key={agentHandoff?.id ?? "default"}
       user={guestUser}
       getAccessToken={getAccessToken}
       onSignOut={onSignOut}

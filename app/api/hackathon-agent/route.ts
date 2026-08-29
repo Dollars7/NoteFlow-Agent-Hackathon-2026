@@ -30,6 +30,12 @@ function cleanNumber(value: unknown, fallback: number, min: number, max: number)
     : fallback;
 }
 
+function cleanNullableNumber(value: unknown, min: number, max: number): number | null {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.min(max, Math.max(min, Math.round(value)))
+    : null;
+}
+
 function cleanChoice<T extends string>(value: unknown, choices: readonly T[], fallback: T): T {
   return typeof value === "string" && choices.includes(value as T) ? value as T : fallback;
 }
@@ -124,6 +130,23 @@ export async function POST(request: NextRequest) {
   const rawContext = body.learnerContext && typeof body.learnerContext === "object"
     ? body.learnerContext as Record<string, unknown>
     : {};
+  const rawSignals = rawContext.explicitPlanningSignals && typeof rawContext.explicitPlanningSignals === "object"
+    ? rawContext.explicitPlanningSignals as Record<string, unknown>
+    : {};
+  const explicitPlanningSignals = {
+    dailyMinutes: cleanNullableNumber(rawSignals.dailyMinutes, 5, 720),
+    sessionMinutes: cleanNullableNumber(rawSignals.sessionMinutes, 5, 180),
+    daysPerWeek: cleanNullableNumber(rawSignals.daysPerWeek, 1, 7),
+    preferredTime: /^([01]\d|2[0-3]):[0-5]\d$/.test(cleanText(rawSignals.preferredTime, 5))
+      ? cleanText(rawSignals.preferredTime, 5)
+      : "",
+    startDate: /^\d{4}-\d{2}-\d{2}$/.test(cleanText(rawSignals.startDate, 10))
+      ? cleanText(rawSignals.startDate, 10)
+      : "",
+    targetDate: /^\d{4}-\d{2}-\d{2}$/.test(cleanText(rawSignals.targetDate, 10))
+      ? cleanText(rawSignals.targetDate, 10)
+      : "",
+  };
   const learnerContext = {
     learningPreferences: cleanText(rawContext.learningPreferences, 1_200),
     constraints: cleanText(rawContext.constraints, 1_200),
@@ -135,6 +158,12 @@ export async function POST(request: NextRequest) {
       ? cleanText(rawContext.preferredTime, 5)
       : "19:00",
     reminderOptIn: rawContext.reminderOptIn === true,
+    dailyMinutes: cleanNullableNumber(rawContext.dailyMinutes, 5, 720),
+    startMode: cleanChoice(rawContext.startMode, ["now", "scheduled", "undecided"] as const, "undecided"),
+    startDate: /^\d{4}-\d{2}-\d{2}$/.test(cleanText(rawContext.startDate, 10)) ? cleanText(rawContext.startDate, 10) : "",
+    targetDate: /^\d{4}-\d{2}-\d{2}$/.test(cleanText(rawContext.targetDate, 10)) ? cleanText(rawContext.targetDate, 10) : "",
+    timeZone: cleanText(rawContext.timeZone, 80),
+    explicitPlanningSignals,
   };
 
   let userId = `judge-${crypto.randomUUID()}`;
@@ -189,7 +218,7 @@ export async function POST(request: NextRequest) {
         responseLanguage,
         "This is real retrieval feedback from the NoteFlow practice flow:",
         JSON.stringify(practice, null, 2),
-        "Reassess the learner's sustainable rhythm and knowledge path from this evidence. Call persist_learning_model with the revised rhythm. Explain the before-to-after rhythm change, set the next invitation, and choose exactly one next retrieval prompt.",
+        "Reassess the learner's sustainable rhythm and knowledge path from this evidence. Call persist_learning_model with the revised rhythm. Explain the before-to-after rhythm change, set the next invitation, and return an ordered nextRetrievalPrompts queue with one attempt-based prompt per inferred theme (2–8 prompts total).",
       ].join("\n\n");
     } else if (action === "clarification") {
       if (!clarification) {
@@ -199,7 +228,9 @@ export async function POST(request: NextRequest) {
         `Learner ID: ${userId}`,
         responseLanguage,
         `Learner clarification: ${clarification}`,
-        "Use this answer to finish the sustainable rhythm, persist it, set one next invitation, and choose exactly one next retrieval prompt.",
+        "Updated merged learner context:",
+        JSON.stringify(learnerContext, null, 2),
+        "Treat this answer and the updated context as part of the same instruction. Explicit numeric, date, and time statements override earlier defaults. Keep daily total time separate from per-session length. Use this answer to finish the sustainable rhythm, persist it, set one next invitation, and return an ordered nextRetrievalPrompts queue with one attempt-based prompt per inferred theme (2–8 prompts total).",
       ].join("\n\n");
     } else {
       prompt = [
@@ -210,7 +241,8 @@ export async function POST(request: NextRequest) {
         JSON.stringify(learnerContext, null, 2),
         "Messy source notes:",
         notes,
-        "Infer an adjustable plan from this natural-language input before choosing the retrieval. Create planSettings with a continuous steady-to-sprint pace bias, session-duration range, invitation-frequency range, pattern, energy window, optional role baseline, and evidence-grounded themes. These ranges guide invitations, never limit voluntary learning. If essential decision-changing context is still absent, return only one CLARIFICATION question. Otherwise persist the plan, rhythm, and knowledge model; set one next invitation; and give exactly one next retrieval prompt.",
+        "Treat the goal, notes, learning preferences, constraints, and explicitPlanningSignals as one merged instruction. Explicit numeric, date, and time statements always override defaults. Preserve the distinction between daily total time and per-session length; for example, “one hour a day” means dailyMinutes=60 and does not by itself require a 60-minute session. If two explicit statements conflict and the choice changes the plan, ask one clarification.",
+        "Infer an adjustable plan before choosing retrievals. Create planSettings with a continuous steady-to-sprint pace bias, session-duration range, invitation-frequency range, daily time budget, start mode/date/time, target date, time zone, optional role baseline, and evidence-grounded themes. These ranges guide invitations, never limit voluntary learning. Never create or imply a scheduled reminder while startMode is undecided. If essential decision-changing context is still absent, return only one CLARIFICATION question. Otherwise persist the plan, rhythm, and knowledge model; set one next invitation; and return an ordered nextRetrievalPrompts queue with one independently usable, attempt-based prompt per inferred theme (2–8 prompts total).",
         "Use the requested response language for every user-facing sentence while keeping tool arguments accurate. Keep the report concise; the structured tool call is the detailed source of truth.",
       ].join("\n\n");
     }

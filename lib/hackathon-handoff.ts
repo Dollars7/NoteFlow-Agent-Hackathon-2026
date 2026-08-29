@@ -5,6 +5,16 @@ export const latestRhythmKey = "noteflow-agent-latest-rhythm-v1";
 
 export type StudyPattern = "short-frequent" | "fixed-daily" | "energy-aligned";
 export type EnergyWindow = "morning" | "midday" | "evening" | "variable";
+export type StartMode = "now" | "scheduled" | "undecided";
+
+export type ExplicitPlanningSignals = {
+  dailyMinutes: number | null;
+  sessionMinutes: number | null;
+  daysPerWeek: number | null;
+  preferredTime: string;
+  startDate: string;
+  targetDate: string;
+};
 
 export type LearnerContext = {
   learningPreferences: string;
@@ -15,6 +25,12 @@ export type LearnerContext = {
   energyWindow: EnergyWindow;
   preferredTime: string;
   reminderOptIn: boolean;
+  dailyMinutes: number | null;
+  startMode: StartMode;
+  startDate: string;
+  targetDate: string;
+  timeZone: string;
+  explicitPlanningSignals: ExplicitPlanningSignals;
 };
 
 export type GeneratedPlanSettings = {
@@ -30,7 +46,34 @@ export type GeneratedPlanSettings = {
   energyWindow: EnergyWindow;
   preferredTime: string;
   reminderOptIn: boolean;
+  dailyMinutes: number | null;
+  startMode: StartMode;
+  startDate: string;
+  targetDate: string;
+  timeZone: string;
   rationale: string;
+};
+
+export type LearningProject = {
+  id: string;
+  goal: string;
+  sourceNotes: string;
+  learningPreferences: string;
+  constraints: string;
+  themes: string[];
+  knowledgeAreas: Array<{ id: string; name: string }>;
+  schedule: {
+    startMode: StartMode;
+    startDate: string;
+    startTime: string;
+    targetDate: string;
+    timeZone: string;
+    dailyMinutes: number | null;
+    sessionMinutesMin: number;
+    sessionMinutesMax: number;
+    invitationsPerWeekMin: number;
+    invitationsPerWeekMax: number;
+  };
 };
 
 export type RhythmRevision = {
@@ -47,13 +90,14 @@ export type HackathonHandoff = {
   goal: string;
   sourceNotes: string;
   title: string;
-  nextRetrievalPrompt: string;
+  nextRetrievalPrompts: string[];
   agentReport: string;
   continuationToken?: string;
   learnerContext?: LearnerContext;
   generatedPlan?: GeneratedPlanSettings;
   rhythmPlan?: string;
   nextInvitation?: string;
+  project?: LearningProject;
   createdAt: string;
 };
 
@@ -66,30 +110,91 @@ const cleanString = (value: unknown, fallback = "") => typeof value === "string"
   ? value.trim()
   : fallback;
 
+const minutesFromMatch = (amount: string, unit: string) => {
+  const parsed = Number(amount);
+  if (!Number.isFinite(parsed)) return null;
+  return Math.round(parsed * (/小时|小時|hours?|hrs?/i.test(unit) ? 60 : 1));
+};
+
+export function extractExplicitPlanningSignals(...sources: string[]): ExplicitPlanningSignals {
+  const text = sources.filter(Boolean).join("\n");
+  const daily = text.match(/(?:每天|每日|一天)[^\d]{0,10}(\d+(?:\.\d+)?)\s*(个)?\s*(小时|小時|分钟|分鐘)/i)
+    ?? text.match(/(\d+(?:\.\d+)?)\s*(hours?|hrs?|minutes?|mins?)\s*(?:a|per|each)\s*day/i);
+  const session = text.match(/(?:每次|单次|單次|一次)[^\d]{0,10}(\d+(?:\.\d+)?)\s*(个)?\s*(小时|小時|分钟|分鐘)/i)
+    ?? text.match(/(\d+(?:\.\d+)?)\s*(hours?|hrs?|minutes?|mins?)\s*(?:a|per|each)\s*session/i);
+  const weekly = text.match(/(?:每周|每週|一周|一週)[^\d]{0,10}(\d+)\s*(?:天|次)/i)
+    ?? text.match(/(\d+)\s*(?:days?|times?)\s*(?:a|per|each)\s*week/i);
+  const clock = text.match(/(?:^|\s|在|从|從|at)([01]?\d|2[0-3]):([0-5]\d)(?:\s|$|开始|開始)/i);
+  const startDate = text.match(/(?:开始|開始|start(?:ing)?)(?:日期|时间|時間|date|time)?[^\d]{0,12}(20\d{2})[-/.](0?[1-9]|1[0-2])[-/.](0?[1-9]|[12]\d|3[01])/i);
+  const targetDate = text.match(/(?:考试|考試|交付|截止|目标|目標|exam|deliver|deadline|due)[^\d]{0,16}(20\d{2})[-/.](0?[1-9]|1[0-2])[-/.](0?[1-9]|[12]\d|3[01])/i);
+  const normalizeDate = (match: RegExpMatchArray | null) => match
+    ? `${match[1]}-${match[2].padStart(2, "0")}-${match[3].padStart(2, "0")}`
+    : "";
+
+  return {
+    dailyMinutes: daily ? minutesFromMatch(daily[1], daily[daily.length - 1]) : null,
+    sessionMinutes: session ? minutesFromMatch(session[1], session[session.length - 1]) : null,
+    daysPerWeek: weekly ? clampInteger(weekly[1], 0, 1, 7) : null,
+    preferredTime: clock ? `${clock[1].padStart(2, "0")}:${clock[2]}` : "",
+    startDate: normalizeDate(startDate),
+    targetDate: normalizeDate(targetDate),
+  };
+}
+
+export function projectKnowledgeAreas(themes: string[]): Array<{ id: string; name: string }> {
+  const seen = new Set<string>();
+  return themes.slice(0, 8).map((name, index) => {
+    const normalized = name.toLowerCase().normalize("NFKD").replace(/[^a-z0-9\u3400-\u9fff]+/g, "-").replace(/^-|-$/g, "");
+    let id = normalized || `area-${index + 1}`;
+    while (seen.has(id)) id = `${id}-${index + 1}`;
+    seen.add(id);
+    return { id, name };
+  });
+}
+
+export function createRetrievalTitle(prompt: string, themes: string[], locale: Locale): string {
+  const theme = themes.find((value) => value.trim())?.trim();
+  if (theme) return locale === "zh" ? `${theme} · 主动检索` : `${theme} · Active retrieval`;
+  const sentence = prompt.replace(/\s+/g, " ").trim().split(/[。！？.!?]/)[0]?.slice(0, 46);
+  return sentence || (locale === "zh" ? "第一次主动检索" : "First active retrieval");
+}
+
 export function normalizeGeneratedPlan(
   value: unknown,
   fallback: { goal: string; locale: Locale; learnerContext: LearnerContext },
 ): GeneratedPlanSettings {
   const source = value && typeof value === "object" ? value as Record<string, unknown> : {};
-  const sessionMin = clampInteger(source.sessionMinutesMin, Math.max(10, fallback.learnerContext.sessionMinutes - 5), 5, 90);
+  const explicit = fallback.learnerContext.explicitPlanningSignals;
+  const explicitSession = explicit.sessionMinutes;
+  const sessionMin = explicitSession ?? clampInteger(source.sessionMinutesMin, Math.max(10, fallback.learnerContext.sessionMinutes - 5), 5, 90);
   const sessionMax = Math.max(
     sessionMin,
-    clampInteger(source.sessionMinutesMax, fallback.learnerContext.sessionMinutes + 5, 5, 90),
+    explicitSession ?? clampInteger(source.sessionMinutesMax, fallback.learnerContext.sessionMinutes + 5, 5, 90),
   );
   const invitationMin = clampInteger(
-    source.invitationsPerWeekMin,
+    explicit.daysPerWeek ?? source.invitationsPerWeekMin,
     Math.max(1, fallback.learnerContext.daysPerWeek - 1),
     1,
     14,
   );
   const invitationMax = Math.max(
     invitationMin,
-    clampInteger(source.invitationsPerWeekMax, fallback.learnerContext.daysPerWeek, 1, 14),
+    clampInteger(explicit.daysPerWeek ?? source.invitationsPerWeekMax, fallback.learnerContext.daysPerWeek, 1, 14),
   );
   const sourceThemes = Array.isArray(source.themes)
     ? source.themes.map((theme) => cleanString(theme)).filter(Boolean).slice(0, 8)
     : [];
   const sprintLanguage = /interview|exam|deadline|days?|weeks?|面试|考试|截止|天|周/i.test(fallback.goal);
+  const startMode = fallback.learnerContext.startMode !== "undecided"
+    ? fallback.learnerContext.startMode
+    : ["now", "scheduled", "undecided"].includes(String(source.startMode))
+      ? source.startMode as StartMode
+      : fallback.learnerContext.startMode;
+  const startDateValue = cleanString(explicit.startDate || source.startDate, fallback.learnerContext.startDate);
+  const reminderRequested = typeof source.reminderOptIn === "boolean"
+    ? source.reminderOptIn
+    : fallback.learnerContext.reminderOptIn;
+  const scheduleConfirmed = startMode === "now" || (startMode === "scheduled" && Boolean(startDateValue));
 
   return {
     goalTitle: cleanString(source.goalTitle, fallback.goal),
@@ -110,12 +215,16 @@ export function normalizeGeneratedPlan(
     energyWindow: ["morning", "midday", "evening", "variable"].includes(String(source.energyWindow))
       ? source.energyWindow as EnergyWindow
       : fallback.learnerContext.energyWindow,
-    preferredTime: /^([01]\d|2[0-3]):[0-5]\d$/.test(String(source.preferredTime))
+    preferredTime: explicit.preferredTime || (/^([01]\d|2[0-3]):[0-5]\d$/.test(String(source.preferredTime))
       ? String(source.preferredTime)
-      : fallback.learnerContext.preferredTime,
-    reminderOptIn: typeof source.reminderOptIn === "boolean"
-      ? source.reminderOptIn
-      : fallback.learnerContext.reminderOptIn,
+      : fallback.learnerContext.preferredTime),
+    reminderOptIn: scheduleConfirmed && reminderRequested,
+    dailyMinutes: explicit.dailyMinutes
+      ?? (source.dailyMinutes === null ? null : clampInteger(source.dailyMinutes, fallback.learnerContext.dailyMinutes ?? 0, 5, 720) || null),
+    startMode,
+    startDate: startDateValue,
+    targetDate: cleanString(explicit.targetDate || source.targetDate, fallback.learnerContext.targetDate),
+    timeZone: cleanString(source.timeZone, fallback.learnerContext.timeZone),
     rationale: cleanString(
       source.rationale,
       fallback.locale === "zh"
@@ -221,6 +330,88 @@ export function extractNextRetrieval(report: string, locale: Locale): string {
     : "Without looking at the notes, explain the most important concept, tradeoff, and next decision in your own words.";
 }
 
+function cleanRetrievalPrompts(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  return value
+    .map((prompt) => cleanString(prompt)
+      .replace(/^\s*(?:>\s*|(?:[-+*]|\d+[.)])\s+)/, "")
+      .replace(/\*\*([^*]+)\*\*/g, "$1")
+      .replace(/\*([^*]+)\*/g, "$1")
+      .replace(/_([^_]+)_/g, "$1")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/\s+/g, " ")
+      .trim())
+    .filter((prompt) => {
+      if (!prompt || seen.has(prompt)) return false;
+      seen.add(prompt);
+      return true;
+    })
+    .slice(0, 8);
+}
+
+function fallbackRetrievalPrompts(
+  report: string,
+  themes: string[],
+  locale: Locale,
+): string[] {
+  const primary = extractNextRetrieval(report, locale);
+  const usableThemes = themes.map((theme) => theme.trim()).filter(Boolean).slice(0, 8);
+  const prompts = usableThemes.map((theme, index) => index === 0
+    ? primary
+    : locale === "zh"
+      ? `不看笔记，用自己的话解释“${theme}”，说明一个关键判断，并举出一个具体应用。`
+      : `Without looking at the notes, explain “${theme}” in your own words, make one key judgment, and give one concrete application.`);
+
+  if (prompts.length >= 2) return prompts;
+  return [
+    primary,
+    locale === "zh"
+      ? `不看笔记，从另一个角度应用“${usableThemes[0] || "这个主题"}”，并说出你最不确定的一步。`
+      : `Without looking at the notes, apply “${usableThemes[0] || "this theme"}” from a different angle and name the step you are least certain about.`,
+  ];
+}
+
+export function extractNextRetrievalPrompts(
+  events: unknown,
+  report: string,
+  themes: string[],
+  locale: Locale,
+): string[] {
+  if (Array.isArray(events)) {
+    for (const event of events) {
+      if (!event || typeof event !== "object") continue;
+      const parts = (event as { content?: { parts?: unknown[] } }).content?.parts;
+      if (!Array.isArray(parts)) continue;
+      for (const part of parts) {
+        if (!part || typeof part !== "object") continue;
+        const candidate = part as {
+          functionCall?: { name?: unknown; args?: unknown; arguments?: unknown };
+          function_call?: { name?: unknown; args?: unknown; arguments?: unknown };
+        };
+        const call = candidate.functionCall ?? candidate.function_call;
+        if (call?.name !== "persist_learning_model") continue;
+        let args = call.args ?? call.arguments;
+        if (typeof args === "string") {
+          try { args = JSON.parse(args) as unknown; } catch { args = null; }
+        }
+        if (args && typeof args === "object") {
+          const prompts = cleanRetrievalPrompts((args as { nextRetrievalPrompts?: unknown }).nextRetrievalPrompts);
+          if (prompts.length > 0) return prompts;
+        }
+      }
+    }
+  }
+
+  const section = extractAgentSection(report, ["next retrieval", "下一次检索"]);
+  const sectionPrompts = cleanRetrievalPrompts(section
+    .split(/\r?\n/)
+    .filter((line) => /^\s*(?:[-+*]|\d+[.)])\s+/.test(line)));
+  return sectionPrompts.length > 0
+    ? sectionPrompts
+    : fallbackRetrievalPrompts(report, themes, locale);
+}
+
 export function isHackathonHandoff(value: unknown): value is HackathonHandoff {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<HackathonHandoff>;
@@ -228,7 +419,8 @@ export function isHackathonHandoff(value: unknown): value is HackathonHandoff {
     candidate.id &&
     (candidate.locale === "en" || candidate.locale === "zh") &&
     candidate.goal &&
-    candidate.nextRetrievalPrompt &&
+    Array.isArray(candidate.nextRetrievalPrompts) &&
+    candidate.nextRetrievalPrompts.length > 0 &&
     candidate.agentReport,
   );
 }

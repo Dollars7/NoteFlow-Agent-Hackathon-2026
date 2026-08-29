@@ -11,7 +11,6 @@ import {
   recordSilentSkip,
   updateCardMemory,
   type CardMemory,
-  type GoalId,
   type GoalProfile,
   type MemoryDelta,
   type MemoryFeedback,
@@ -20,9 +19,11 @@ import {
   type SkillState,
 } from "../lib/flow-engine";
 import {
+  createRetrievalTitle,
   extractAgentSection,
   extractAgentText,
   latestRhythmKey,
+  projectKnowledgeAreas,
   type HackathonHandoff,
   type RhythmRevision,
 } from "../lib/hackathon-handoff";
@@ -32,6 +33,7 @@ import { NoteLibrary } from "./note-library";
 
 type Phase =
   | "pre"
+  | "idle"
   | "attempt"
   | "hint-keywords"
   | "hint-scaffold"
@@ -42,7 +44,6 @@ type Phase =
 
 type StoredMemory = {
   goalProfile: GoalProfile;
-  goal?: GoalId;
   skills: SkillState[];
   cardMemory: Record<string, CardMemory>;
   evidence: RetrievalEvidence[];
@@ -162,7 +163,13 @@ function SkillStateView({
   );
 }
 
-function AgentPlanPreview({ handoff }: { handoff: HackathonHandoff }) {
+function AgentPlanPreview({
+  handoff,
+  onOpenNotes,
+}: {
+  handoff: HackathonHandoff;
+  onOpenNotes: () => void;
+}) {
   const { t } = useLocale();
   const themes = handoff.generatedPlan?.themes ?? [];
 
@@ -178,7 +185,7 @@ function AgentPlanPreview({ handoff }: { handoff: HackathonHandoff }) {
       <div className="queued-retrieval">
         <span>{t("Agent-selected", "Agent 已选择")}</span>
         <strong>{handoff.title}</strong>
-        <p>{handoff.nextRetrievalPrompt}</p>
+        <p>{handoff.nextRetrievalPrompts[0]}</p>
       </div>
       {themes.length > 0 && (
         <div className="preview-themes">
@@ -186,6 +193,23 @@ function AgentPlanPreview({ handoff }: { handoff: HackathonHandoff }) {
           <div>{themes.map((theme) => <i key={theme}>{theme}</i>)}</div>
         </div>
       )}
+      <div className="plan-library-entry">
+        <div>
+          <span>{t("Before learning", "开始学习前")}</span>
+          <strong>{t(
+            "Prepare the notes this plan will use",
+            "先准备这次计划要用的笔记",
+          )}</strong>
+          <p>{t(
+            "Review the Agent-generated card, import notes you already have, or create your own. Return here to start when the material is ready.",
+            "查看 Agent 生成的卡片、导入已有笔记，或添加自己的内容。资料设置完成后，再回来开始学习。",
+          )}</p>
+        </div>
+        <button type="button" onClick={onOpenNotes}>
+          {t("Open Notes", "打开笔记库")}
+          <span aria-hidden="true">→</span>
+        </button>
+      </div>
     </section>
   );
 }
@@ -254,6 +278,98 @@ This prerequisite card came from a “no direction” signal. It is not a debt.`
   };
 }
 
+function projectSkillsForHandoff(handoff: HackathonHandoff): SkillState[] {
+  const areas = handoff.project?.knowledgeAreas
+    ?? projectKnowledgeAreas(handoff.generatedPlan?.themes ?? [handoff.title]);
+  return areas.map((area) => ({
+    id: area.id,
+    name: area.name,
+    mastery: 0.3,
+    retention: 0.3,
+    expression: 0.3,
+    confidence: 0.3,
+  }));
+}
+
+function retrievalModeForHandoff(handoff: HackathonHandoff): NoteCard["mode"] {
+  const text = handoff.goal + "\n" + handoff.nextRetrievalPrompts.join("\n");
+  if (/说|口语|发音|对话|speak|pronounc|conversation|language/i.test(text)) return "speak";
+  if (/设计|架构|权衡|design|architect|trade-?off/i.test(text)) return "design";
+  if (/解决|计算|算法|题目|solve|calculate|algorithm/i.test(text)) return "solve";
+  return "recall";
+}
+
+function projectCardsForHandoff(
+  handoff: HackathonHandoff,
+  projectSkills: SkillState[],
+  rationale: string,
+): NoteCard[] {
+  const themes = handoff.generatedPlan?.themes
+    ?? handoff.project?.themes
+    ?? projectSkills.map((skill) => skill.name);
+  const projectId = handoff.project?.id ?? handoff.id;
+  const projectTag = "project:" + projectId;
+  const fallbackSkill = projectSkills[0] ?? {
+    id: "project-focus",
+    name: handoff.title,
+    mastery: 0.3,
+    retention: 0.3,
+    expression: 0.3,
+    confidence: 0.3,
+  };
+
+  return handoff.nextRetrievalPrompts.map((prompt, index) => {
+    const skill = projectSkills[index % Math.max(projectSkills.length, 1)] ?? fallbackSkill;
+    const theme = themes[index % Math.max(themes.length, 1)] ?? skill.name;
+    const title = index === 0
+      ? handoff.title
+      : createRetrievalTitle(prompt, [theme], handoff.locale);
+    const focusLines = [theme, ...themes.filter((item) => item !== theme).slice(0, 2)]
+      .filter(Boolean)
+      .map((item) => `- ${item}`)
+      .join("\n");
+
+    return {
+      id: index === 0 ? handoff.id : `${handoff.id}-retrieval-${index + 1}`,
+      skillId: skill.id,
+      tags: ["agent-selected", projectTag, "retrieval", skill.id],
+      mode: retrievalModeForHandoff(handoff),
+      title,
+      prompt,
+      hintKeywords: [theme, ...themes.filter((item) => item !== theme)].filter(Boolean).slice(0, 3),
+      scaffold: handoff.locale === "zh"
+        ? ["先直接作答，不看笔记。", "说明你为什么这样判断。", "用自己的例子或下一步把答案说完整。"]
+        : ["Answer directly without opening the note.", "Explain why you reached that answer.", "Complete it with your own example or next step."],
+      noteMarkdown: handoff.locale === "zh"
+        ? `## 为什么练习这一项\n\n${rationale}\n\n## 本卡重点\n\n${focusLines}`
+        : `## Why this practice\n\n${rationale}\n\n## Card focus\n\n${focusLines}`,
+      goalRelevance: Math.max(0.78, 0.95 - index * 0.03),
+      dependencyValue: Math.max(0.7, 0.92 - index * 0.04),
+      uncertainty: 0.82,
+    };
+  });
+}
+
+function planStartDate(profile: GoalProfile): Date | null {
+  if (profile.startMode === "now") return new Date();
+  if (profile.startMode !== "scheduled" || !profile.startDate || !profile.preferredTime) return null;
+  const value = new Date(profile.startDate + "T" + profile.preferredTime + ":00");
+  return Number.isNaN(value.getTime()) ? null : value;
+}
+
+function formatIcsDate(value: Date): string {
+  return value.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+}
+
+function normalizeStoredCard(card: NoteCard): NoteCard {
+  const rawRelevance = (card as unknown as { goalRelevance?: unknown }).goalRelevance;
+  if (typeof rawRelevance === "number") return card;
+  const legacyValues = rawRelevance && typeof rawRelevance === "object"
+    ? Object.values(rawRelevance).filter((value): value is number => typeof value === "number")
+    : [];
+  return { ...card, goalRelevance: legacyValues.length > 0 ? Math.max(...legacyValues) : 0.65 };
+}
+
 export default function NoteFlowApp({
   user,
   getAccessToken,
@@ -262,7 +378,8 @@ export default function NoteFlowApp({
   agentHandoff = null,
 }: NoteFlowAppProps) {
   const { locale, t } = useLocale();
-  const storageKey = `noteflow-memory-v4:${user.id}`;
+  const storageKey = `noteflow-memory-v5:${user.id}:${agentHandoff?.id ?? "default"}`;
+  const legacyUserStorageKey = `noteflow-memory-v4:${user.id}`;
   const legacyAccountStorageKey = `noteflow-memory-v3:${user.email.trim().toLowerCase()}`;
   const [phase, setPhase] = useState<Phase>("pre");
   const [workspaceView, setWorkspaceView] = useState<"notes" | "learn">("learn");
@@ -288,20 +405,26 @@ export default function NoteFlowApp({
   const [audioUrl, setAudioUrl] = useState("");
   const [agentSyncStage, setAgentSyncStage] = useState<"idle" | "running" | "complete" | "error">("idle");
   const [rhythmRevision, setRhythmRevision] = useState<RhythmRevision | null>(null);
+  const [reminderStatus, setReminderStatus] = useState("");
 
   const attemptStartedAt = useRef(0);
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const mediaStream = useRef<MediaStream | null>(null);
   const audioChunks = useRef<Blob[]>([]);
   const appliedHandoffId = useRef<string | null>(null);
+  const restoredProjectState = useRef(false);
+  const reminderTimer = useRef<number | null>(null);
+  const activeProjectTag = agentHandoff ? "project:" + (agentHandoff.project?.id ?? agentHandoff.id) : "";
 
   const allCards = useMemo(() => {
     const edits = new Map(generatedCards.map((card) => [card.id, card]));
     const baseIds = new Set(noteCards.map((card) => card.id));
-    const merged = [
-      ...noteCards.map((card) => edits.get(card.id) ?? card),
-      ...generatedCards.filter((card) => !baseIds.has(card.id)),
-    ];
+    const merged = activeProjectTag
+      ? generatedCards.filter((card) => card.tags?.includes(activeProjectTag))
+      : [
+          ...noteCards.map((card) => edits.get(card.id) ?? card),
+          ...generatedCards.filter((card) => !baseIds.has(card.id)),
+        ];
 
     return merged
       .filter((card) => !deletedCardIds.includes(card.id))
@@ -313,16 +436,19 @@ export default function NoteFlowApp({
             ? generatedNotes[card.id]
             : card.noteMarkdown,
       }));
-  }, [deletedCardIds, generatedCards, generatedNotes]);
+  }, [activeProjectTag, deletedCardIds, generatedCards, generatedNotes]);
   const currentCard = allCards.find((card) => card.id === sessionQueue[0]);
 
   useEffect(() => {
+    const awaitingAgentHandoff = !agentHandoff
+      && new URLSearchParams(window.location.search).get("source") === "agent";
+    if (awaitingAgentHandoff) return;
+
     const applyStored = (parsed: StoredMemory) => {
       const storedProfile = parsed.goalProfile as (Partial<GoalProfile> & { mode?: "steady" | "sprint" }) | undefined;
       setGoalProfile({
         ...defaultGoalProfile,
-        ...storedProfile,
-        baseGoal: storedProfile?.baseGoal ?? parsed.goal ?? defaultGoalProfile.baseGoal,
+        title: storedProfile?.title ?? defaultGoalProfile.title,
         roleBaseline: storedProfile?.roleBaseline ?? defaultGoalProfile.roleBaseline,
         themes: storedProfile?.themes ?? defaultGoalProfile.themes,
         paceBias: storedProfile?.paceBias ?? (storedProfile?.mode === "sprint" ? 78 : 25),
@@ -334,20 +460,26 @@ export default function NoteFlowApp({
         energyWindow: storedProfile?.energyWindow ?? defaultGoalProfile.energyWindow,
         preferredTime: storedProfile?.preferredTime ?? defaultGoalProfile.preferredTime,
         reminderOptIn: storedProfile?.reminderOptIn ?? defaultGoalProfile.reminderOptIn,
+        dailyMinutes: storedProfile?.dailyMinutes ?? defaultGoalProfile.dailyMinutes,
+        startMode: storedProfile?.startMode ?? defaultGoalProfile.startMode,
+        startDate: storedProfile?.startDate ?? defaultGoalProfile.startDate,
+        timeZone: storedProfile?.timeZone ?? defaultGoalProfile.timeZone,
         sprintDeadline: storedProfile?.sprintDeadline ?? "",
         focusSkillIds: storedProfile?.focusSkillIds ?? [],
       });
       setSkills(parsed.skills ?? initialSkills);
       setCardMemory({
-        ...createInitialCardMemory([...noteCards, ...(parsed.generatedCards ?? [])]),
+        ...createInitialCardMemory(agentHandoff
+          ? (parsed.generatedCards ?? [])
+          : [...noteCards, ...(parsed.generatedCards ?? [])]),
         ...(parsed.cardMemory ?? {}),
       });
       setEvidence(parsed.evidence ?? []);
       setGeneratedCards(
-        (parsed.generatedCards ?? []).map((card) => ({
-          ...card,
-          tags: card.tags ?? [card.skillId],
-        })),
+        (parsed.generatedCards ?? []).map((storedCard) => {
+          const card = normalizeStoredCard(storedCard);
+          return { ...card, tags: card.tags ?? [card.skillId] };
+        }),
       );
       setGeneratedNotes(parsed.generatedNotes ?? {});
       setDeletedCardIds(parsed.deletedCardIds ?? []);
@@ -359,7 +491,7 @@ export default function NoteFlowApp({
 
         try {
           const accessToken = await getAccessToken();
-          if (accessToken) {
+          if (accessToken && !agentHandoff) {
             const response = await fetch("/api/state", {
               headers: {
                 accept: "application/json",
@@ -377,15 +509,22 @@ export default function NoteFlowApp({
 
         if (!parsed) {
           try {
-            const saved =
-              window.localStorage.getItem(storageKey) ??
-              window.localStorage.getItem(legacyAccountStorageKey) ??
-              window.localStorage.getItem(legacyStorageKey);
-            if (saved) parsed = JSON.parse(saved) as StoredMemory;
+            const scopedSaved = window.localStorage.getItem(storageKey);
+            const saved = scopedSaved
+              ?? (!agentHandoff ? window.localStorage.getItem(legacyUserStorageKey) : null)
+              ?? (!agentHandoff ? window.localStorage.getItem(legacyAccountStorageKey) : null)
+              ?? (!agentHandoff ? window.localStorage.getItem(legacyStorageKey) : null);
+            if (saved) {
+              parsed = JSON.parse(saved) as StoredMemory;
+              if (agentHandoff && scopedSaved) restoredProjectState.current = true;
+            }
           } catch {
             window.localStorage.removeItem(storageKey);
-            window.localStorage.removeItem(legacyAccountStorageKey);
-            window.localStorage.removeItem(legacyStorageKey);
+            if (!agentHandoff) {
+              window.localStorage.removeItem(legacyAccountStorageKey);
+              window.localStorage.removeItem(legacyUserStorageKey);
+              window.localStorage.removeItem(legacyStorageKey);
+            }
           }
         }
 
@@ -395,7 +534,7 @@ export default function NoteFlowApp({
     });
 
     return () => window.cancelAnimationFrame(restoreFrame);
-  }, [getAccessToken, legacyAccountStorageKey, storageKey]);
+  }, [agentHandoff, getAccessToken, legacyAccountStorageKey, legacyUserStorageKey, storageKey]);
 
   useEffect(() => {
     if (!hasRestored) return;
@@ -412,9 +551,13 @@ export default function NoteFlowApp({
 
     const saveTimer = window.setTimeout(() => {
       window.localStorage.setItem(storageKey, JSON.stringify(stored));
-      window.localStorage.removeItem(legacyAccountStorageKey);
-      window.localStorage.removeItem(legacyStorageKey);
+      if (!agentHandoff) {
+        window.localStorage.removeItem(legacyAccountStorageKey);
+        window.localStorage.removeItem(legacyUserStorageKey);
+        window.localStorage.removeItem(legacyStorageKey);
+      }
       void (async () => {
+        if (agentHandoff) return;
         const accessToken = await getAccessToken();
         if (!accessToken) return;
         await fetch("/api/state", {
@@ -431,7 +574,7 @@ export default function NoteFlowApp({
     }, 350);
 
     return () => window.clearTimeout(saveTimer);
-  }, [cardMemory, deletedCardIds, evidence, generatedCards, generatedNotes, getAccessToken, goalProfile, hasRestored, legacyAccountStorageKey, skills, storageKey]);
+  }, [agentHandoff, cardMemory, deletedCardIds, evidence, generatedCards, generatedNotes, getAccessToken, goalProfile, hasRestored, legacyAccountStorageKey, legacyUserStorageKey, skills, storageKey]);
 
   useEffect(() => {
     if (!hasRestored || !agentHandoff || appliedHandoffId.current === agentHandoff.id) return;
@@ -440,28 +583,17 @@ export default function NoteFlowApp({
     const rationale = generatedPlan?.rationale || (agentHandoff.locale === "zh"
       ? "这道练习由 Agent 根据你的目标和卡点选择。"
       : "The Agent selected this practice from your goal and stuck points.");
-    const focusLines = (generatedPlan?.themes ?? []).map((theme) => `- ${theme}`).join("\n");
-
-    const launchCard: NoteCard = {
-      id: agentHandoff.id,
-      skillId: "ood",
-      tags: ["agent-selected", "hackathon", "retrieval"],
-      mode: "design",
-      title: agentHandoff.locale === "zh" ? "Agent 选择的练习" : "Agent-selected practice",
-      prompt: agentHandoff.nextRetrievalPrompt,
-      hintKeywords: agentHandoff.locale === "zh"
-        ? ["核心权衡", "用户影响", "设计决策"]
-        : ["core tradeoff", "user impact", "design decision"],
-      scaffold: agentHandoff.locale === "zh"
-        ? ["先说出必须保护的系统行为。", "明确你愿意放宽的保证。", "说明用户会看到什么，以及你如何缓解。"]
-        : ["State the system behavior you must protect.", "Name the guarantee you are willing to relax.", "Explain what the user will observe and how you would mitigate it."],
-      noteMarkdown: agentHandoff.locale === "zh"
-        ? `## 为什么练习这一项\n\n${rationale}${focusLines ? `\n\n## 学习重点\n\n${focusLines}` : ""}`
-        : `## Why this practice\n\n${rationale}${focusLines ? `\n\n## Learning focus\n\n${focusLines}` : ""}`,
-      goalRelevance: { "amazon-sde2": 0.95, "google-l4": 0.95 },
-      dependencyValue: 0.92,
-      uncertainty: 0.82,
+    const projectSkills = projectSkillsForHandoff(agentHandoff);
+    const primarySkill = projectSkills[0] ?? {
+      id: "project-focus",
+      name: agentHandoff.title,
+      mastery: 0.3,
+      retention: 0.3,
+      expression: 0.3,
+      confidence: 0.3,
     };
+    const launchCards = projectCardsForHandoff(agentHandoff, projectSkills, rationale);
+    const launchCard = launchCards[0];
 
     setGoalProfile((profile) => ({
       ...profile,
@@ -477,20 +609,27 @@ export default function NoteFlowApp({
       energyWindow: generatedPlan?.energyWindow ?? profile.energyWindow,
       preferredTime: generatedPlan?.preferredTime ?? profile.preferredTime,
       reminderOptIn: generatedPlan?.reminderOptIn ?? profile.reminderOptIn,
-      baseGoal: /google/i.test(generatedPlan?.roleBaseline ?? "") ? "google-l4" : profile.baseGoal,
+      dailyMinutes: generatedPlan?.dailyMinutes ?? profile.dailyMinutes,
+      startMode: generatedPlan?.startMode ?? profile.startMode,
+      startDate: generatedPlan?.startDate ?? profile.startDate,
+      timeZone: generatedPlan?.timeZone ?? profile.timeZone,
+      sprintDeadline: generatedPlan?.targetDate ?? profile.sprintDeadline,
       focusSkillIds: [],
     }));
-    setGeneratedCards((cards) => cards.some((card) => card.id === launchCard.id) ? cards : [...cards, launchCard]);
-    setCardMemory((memory) => ({
-      ...memory,
-      [launchCard.id]: memory[launchCard.id] ?? {
-        intervalScale: 1,
-        skipCount: 0,
-        needsSplit: false,
-        prerequisiteNeeded: false,
-      },
-    }));
-    setDeletedCardIds((ids) => ids.filter((id) => id !== launchCard.id));
+    if (restoredProjectState.current) {
+      setSkills((current) => current.length > 0 ? current : (projectSkills.length ? projectSkills : [primarySkill]));
+      const launchIds = new Set(launchCards.map((card) => card.id));
+      setGeneratedCards((cards) => [...cards.filter((card) => !launchIds.has(card.id)), ...launchCards]);
+      setCardMemory((memory) => ({ ...createInitialCardMemory(launchCards), ...memory }));
+    } else {
+      setSkills(projectSkills.length ? projectSkills : [primarySkill]);
+      setCardMemory(createInitialCardMemory(launchCards));
+      setEvidence([]);
+      setGeneratedCards(launchCards);
+      setGeneratedNotes({});
+      setDeletedCardIds([]);
+    }
+    setDeletedCardIds((ids) => ids.filter((id) => !launchCards.some((card) => card.id === id)));
     setSelectedNoteId(launchCard.id);
     setSessionQueue([]);
     setWorkspaceView("learn");
@@ -499,7 +638,7 @@ export default function NoteFlowApp({
     setAttemptOutcome(null);
     setMemoryDelta(null);
     setGapSentence("");
-    setPhase("pre");
+    setPhase(restoredProjectState.current ? "idle" : "pre");
   }, [agentHandoff, hasRestored]);
 
   const clearRecording = () => {
@@ -526,9 +665,10 @@ export default function NoteFlowApp({
   };
 
   const beginSession = () => {
-    const queue = agentHandoff && allCards.some((card) => card.id === agentHandoff.id)
-      ? [agentHandoff.id]
-      : rankCards(allCards, goalProfile, skills, cardMemory).map((card) => card.id);
+    const ranked = rankCards(allCards, goalProfile, skills, cardMemory).map((card) => card.id);
+    const queue = agentHandoff && ranked.includes(agentHandoff.id)
+      ? [agentHandoff.id, ...ranked.filter((id) => id !== agentHandoff.id)]
+      : ranked;
     if (queue.length === 0) return;
     setSessionQueue(queue);
     window.requestAnimationFrame(startAttempt);
@@ -542,11 +682,11 @@ export default function NoteFlowApp({
 
   const advanceToNextCard = () => {
     const remaining = sessionQueue.slice(1);
-    const nextQueue =
-      remaining.length > 0
-        ? remaining
-        : rankCards(allCards, goalProfile, skills, cardMemory).map((card) => card.id);
-    setSessionQueue(nextQueue);
+    if (remaining.length === 0) {
+      finishSession();
+      return;
+    }
+    setSessionQueue(remaining);
     window.requestAnimationFrame(startAttempt);
   };
 
@@ -686,7 +826,7 @@ This is not a debt. It has returned to the scheduling pool as an independent car
   };
 
   const syncAgentFeedback = async (card: NoteCard, feedback: MemoryFeedback, delta: MemoryDelta) => {
-    if (!agentHandoff?.continuationToken || card.id !== agentHandoff.id) return;
+    if (!agentHandoff?.continuationToken || !card.tags?.includes("agent-selected")) return;
     setAgentSyncStage("running");
     setRhythmRevision(null);
 
@@ -804,11 +944,11 @@ This is not a debt. It has returned to the scheduling pool as an independent car
 
   const createNote = () => {
     const cardId = `note-${Date.now()}`;
-    const skillId = goalProfile.focusSkillIds[0] ?? "intervals";
+    const skillId = goalProfile.focusSkillIds[0] ?? skills[0]?.id ?? "general";
     const card: NoteCard = {
       id: cardId,
       skillId,
-      tags: [skillId],
+      tags: activeProjectTag ? [skillId, activeProjectTag] : [skillId],
       mode: "recall",
       title: t("Untitled note", "未命名笔记"),
       prompt: t("Without looking at the note, explain its core concept in your own words.", "不看笔记，用自己的话解释这条知识的核心概念。"),
@@ -817,7 +957,7 @@ This is not a debt. It has returned to the scheduling pool as an independent car
         ? ["先给出定义。", "再说明它解决什么问题。", "最后给一个自己的例子。"]
         : ["Start with a definition.", "Explain the problem it solves.", "Finish with an example of your own."],
       noteMarkdown: "",
-      goalRelevance: { "amazon-sde2": 0.65, "google-l4": 0.65 },
+      goalRelevance: 0.65,
       dependencyValue: 0.5,
       uncertainty: 0.8,
     };
@@ -871,7 +1011,11 @@ This is not a debt. It has returned to the scheduling pool as an independent car
 
     setGeneratedCards((cards) => {
       const merged = new Map(cards.map((card) => [card.id, card]));
-      cardsToImport.forEach((card) => merged.set(card.id, { ...card, tags: card.tags ?? [] }));
+      cardsToImport.forEach((card) => merged.set(card.id, {
+        ...card,
+        skillId: skills.some((skill) => skill.id === card.skillId) ? card.skillId : (skills[0]?.id ?? card.skillId),
+        tags: [...new Set([...(card.tags ?? []), ...(activeProjectTag ? [activeProjectTag] : [])])],
+      }));
       return [...merged.values()];
     });
     setDeletedCardIds((ids) => ids.filter((id) => !cardsToImport.some((card) => card.id === id)));
@@ -903,21 +1047,115 @@ This is not a debt. It has returned to the scheduling pool as an independent car
   const openLearning = () => {
     clearRecording();
     setSessionQueue([]);
-    setPhase("pre");
+    setPhase((current) => current === "pre" ? "pre" : agentHandoff ? "idle" : "pre");
     setWorkspaceView("learn");
   };
 
   const resetMemory = () => {
     clearRecording();
-    setGoalProfile(defaultGoalProfile);
-    setSkills(initialSkills);
+    if (agentHandoff) {
+      setSkills(projectSkillsForHandoff(agentHandoff));
+    } else {
+      setGoalProfile(defaultGoalProfile);
+      setSkills(initialSkills);
+    }
     setCardMemory(createInitialCardMemory(allCards));
     setEvidence([]);
     setSessionQueue([]);
-    setPhase("pre");
+    setPhase(agentHandoff ? "idle" : "pre");
+  };
+
+  const downloadCalendarInvitation = () => {
+    const startsAt = planStartDate(goalProfile);
+    if (!startsAt) {
+      setReminderStatus(t(
+        "Confirm a start date and time before creating a calendar event.",
+        "请先确认开始日期和时间，再创建日历事件。",
+      ));
+      return;
+    }
+    const endsAt = new Date(startsAt.getTime() + goalProfile.sessionMinutesMax * 60_000);
+    const title = "NoteFlow · " + goalProfile.title;
+    const dailyBudget = goalProfile.dailyMinutes
+      ? t("Daily budget: ", "每日预算：") + goalProfile.dailyMinutes + " min. "
+      : "";
+    const description = dailyBudget + t(
+      "Suggested session range: ",
+      "建议单次范围：",
+    ) + goalProfile.sessionMinutesMin + "–" + goalProfile.sessionMinutesMax + " min. " + t(
+      "Open NoteFlow for one retrieval; stopping after it is allowed.",
+      "打开 NoteFlow 完成一次检索；做完即可停止。",
+    );
+    const ics = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//NoteFlow//Learning Project//EN",
+      "CALSCALE:GREGORIAN",
+      "BEGIN:VEVENT",
+      "UID:noteflow-" + Date.now() + "@noteflow",
+      "DTSTAMP:" + formatIcsDate(new Date()),
+      "DTSTART:" + formatIcsDate(startsAt),
+      "DTEND:" + formatIcsDate(endsAt),
+      "SUMMARY:" + title,
+      "DESCRIPTION:" + description,
+      "BEGIN:VALARM",
+      "TRIGGER:-PT10M",
+      "ACTION:DISPLAY",
+      "DESCRIPTION:" + title,
+      "END:VALARM",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n");
+    const url = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "noteflow-learning-project.ics";
+    link.click();
+    URL.revokeObjectURL(url);
+    setReminderStatus(t("Calendar event downloaded.", "日历事件已下载。"));
+  };
+
+  const enableBrowserReminder = async () => {
+    const startsAt = planStartDate(goalProfile);
+    if (!startsAt) {
+      setReminderStatus(t(
+        "Confirm a start date and time before enabling a reminder.",
+        "请先确认开始日期和时间，再开启提醒。",
+      ));
+      return;
+    }
+    if (!("Notification" in window)) {
+      setReminderStatus(t("This browser does not support notifications. Use the calendar event instead.", "当前浏览器不支持通知，请改用日历事件。"));
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      setReminderStatus(t("Notification permission was not enabled.", "未开启通知权限。"));
+      return;
+    }
+    window.localStorage.setItem("noteflow-next-reminder-v1", JSON.stringify({
+      at: startsAt.toISOString(),
+      project: goalProfile.title,
+      sessionMinutesMin: goalProfile.sessionMinutesMin,
+      sessionMinutesMax: goalProfile.sessionMinutesMax,
+    }));
+    if (reminderTimer.current) window.clearTimeout(reminderTimer.current);
+    const delay = Math.max(0, startsAt.getTime() - Date.now());
+    if (delay <= 2_147_483_647) {
+      reminderTimer.current = window.setTimeout(() => {
+        new Notification(t("Your NoteFlow learning time is here", "你的 NoteFlow 学习时间到了"), {
+          body: t("Open one retrieval. There is no overdue work.", "只做一次检索，没有逾期任务。"),
+        });
+      }, delay);
+    }
+    setReminderStatus(t(
+      "Browser reminder enabled while this browser remains available. Calendar export is more durable.",
+      "浏览器提醒已开启；日历事件在关闭页面后更可靠。",
+    ));
   };
 
   const noteSource = currentCard?.noteMarkdown ?? "";
+  const scheduleConfirmed = Boolean(planStartDate(goalProfile));
 
   return (
     <main className={`app-shell phase-${phase}`}>
@@ -930,7 +1168,7 @@ This is not a debt. It has returned to the scheduling pool as an independent car
             <span className="brand-mark" aria-hidden="true">N</span>
             <span>NoteFlow</span>
           </button>
-          {(phase === "pre" || phase === "post") && (
+          {(phase === "pre" || phase === "idle" || phase === "post") && (
             <nav className="workspace-nav" aria-label={t("Workspace", "工作区")}>
               <button
                 type="button"
@@ -950,7 +1188,7 @@ This is not a debt. It has returned to the scheduling pool as an independent car
           )}
         </div>
 
-        {phase !== "pre" && phase !== "post" ? (
+        {phase !== "pre" && phase !== "idle" && phase !== "post" ? (
           <div className="active-header">
             {agentHandoff
               ? <span className="content-language-badge">{agentHandoff.locale === "zh" ? "中文内容" : "English content"}</span>
@@ -1000,7 +1238,7 @@ This is not a debt. It has returned to the scheduling pool as an independent car
         )}
       </header>
 
-      {(phase === "pre" || phase === "post") && workspaceView === "notes" && (
+      {(phase === "pre" || phase === "idle" || phase === "post") && workspaceView === "notes" && (
         <NoteLibrary
           cards={allCards}
           skills={skills}
@@ -1036,15 +1274,65 @@ This is not a debt. It has returned to the scheduling pool as an independent car
                     "NoteFlow 不展示待办、欠账或完成率。没做到的卡会自然回到调度池，和所有知识一样重新竞争下一次检索机会。",
                   )}
             </p>
-            <GoalPlanner profile={goalProfile} onChange={setGoalProfile} agentGenerated={Boolean(agentHandoff)} />
-            <button className="primary-button start-session-button" type="button" onClick={beginSession}>
-              {t("Start this session", "开始本次学习")}
+            <GoalPlanner
+              profile={goalProfile}
+              skills={skills}
+              onChange={setGoalProfile}
+              agentGenerated={Boolean(agentHandoff)}
+            />
+            <button className="primary-button start-session-button" type="button" onClick={() => setPhase("idle")}>
+              {t("Confirm this plan", "确认学习计划")}
               <span aria-hidden="true">→</span>
             </button>
           </div>
           {agentHandoff
-            ? <AgentPlanPreview handoff={agentHandoff} />
+            ? <AgentPlanPreview handoff={agentHandoff} onOpenNotes={() => setWorkspaceView("notes")} />
             : <SkillStateView skills={skills} eyebrow={t("Before session", "Session 前")} title={t("Current skill state", "当前能力状态")} isGuest={isGuest} />}
+        </section>
+      )}
+
+      {phase === "idle" && workspaceView === "learn" && (
+        <section className="idle-session">
+          <div className="idle-copy">
+            <p className="eyebrow">{t("Plan set · start when you are ready", "计划已设置 · 准备好再开始")}</p>
+            <h1>{goalProfile.title}</h1>
+            <p>{t(
+              "Your notes and Agent-generated retrieval cards are ready. Start now, return to Notes, or adjust the plan—nothing becomes overdue while you wait.",
+              "笔记和 Agent 生成的检索卡都已准备好。你可以现在开始、回到笔记库补充资料，或继续调整计划；等待期间不会产生逾期任务。",
+            )}</p>
+            <div className="idle-plan-summary">
+              <div><span>{t("Session range", "单次范围")}</span><strong>{goalProfile.sessionMinutesMin}–{goalProfile.sessionMinutesMax} min</strong></div>
+              <div><span>{t("Retrieval cards", "检索卡片")}</span><strong>{allCards.length}</strong></div>
+              <div><span>{t("Start", "开始时间")}</span><strong>{scheduleConfirmed ? t("Confirmed", "已确认") : t("Not decided", "尚未确定")}</strong></div>
+            </div>
+            <div className="idle-actions">
+              <button className="primary-button" type="button" onClick={beginSession}>
+                {t("Start learning", "开始学习")}
+                <span aria-hidden="true">→</span>
+              </button>
+              <button className="secondary-button" type="button" onClick={() => setPhase("pre")}>
+                {t("Adjust plan", "调整计划")}
+              </button>
+            </div>
+            <div className="idle-schedule-actions">
+              <div>
+                <span>{t("Calendar and reminders", "日历与提醒")}</span>
+                <p>{scheduleConfirmed
+                  ? t("Export the confirmed session range or enable the optional browser reminder.", "导出已经确认的学习时间段，或开启可选的浏览器提醒。")
+                  : t("Choose a start time in Adjust plan before exporting a calendar event or enabling a reminder.", "请先在“调整计划”中确定开始时间，再导出日历事件或开启提醒。")}</p>
+              </div>
+              {scheduleConfirmed && (
+                <div className="plan-reminder-actions">
+                  <button type="button" onClick={downloadCalendarInvitation}>{t("Add to calendar", "添加到日历")}</button>
+                  {goalProfile.reminderOptIn && (
+                    <button type="button" onClick={() => void enableBrowserReminder()}>{t("Enable browser reminder", "开启浏览器提醒")}</button>
+                  )}
+                </div>
+              )}
+            </div>
+            {reminderStatus && <p className="plan-reminder-status">{reminderStatus}</p>}
+          </div>
+          <SkillStateView skills={skills} eyebrow={t("Current project", "当前项目")} title={t("Current skill state", "当前能力状态")} isGuest={isGuest} />
         </section>
       )}
 
@@ -1064,8 +1352,8 @@ This is not a debt. It has returned to the scheduling pool as an independent car
                 <strong>{rhythmRevision.nextInvitation || t("The next study reminder follows the revised rhythm.", "下次学习提醒将按照新节奏出现。")}</strong>
               </div>
             )}
-            <button className="primary-button" type="button" onClick={() => setPhase("pre")}>
-              {t("Return to the start", "回到开始前")}
+            <button className="primary-button" type="button" onClick={() => setPhase("idle")}>
+              {t("Back to the plan", "回到计划")}
               <span aria-hidden="true">↗</span>
             </button>
           </div>
@@ -1073,7 +1361,7 @@ This is not a debt. It has returned to the scheduling pool as an independent car
         </section>
       )}
 
-      {phase !== "pre" && phase !== "post" && currentCard && (
+      {phase !== "pre" && phase !== "idle" && phase !== "post" && currentCard && (
         <section className="retrieval-space">
           <article className={`memory-card card-${phase}`}>
             <div className="card-chrome">

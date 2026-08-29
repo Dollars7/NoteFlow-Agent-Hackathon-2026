@@ -202,6 +202,16 @@
 .moreSettings[open] > summary::after { content: "−"; }
 .moreSettings > summary small { color: #6f7970; font-size: 9px; font-weight: 500; margin-left: auto; }
 .contextBlock { background: rgba(217, 255, 136, 0.035); border-top: 1px solid rgba(217, 255, 136, 0.1); padding: 2px 14px 14px; }
+.planningFields { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.numberField { align-items: center; display: grid; grid-template-columns: minmax(0, 1fr) auto; position: relative; }
+.numberField input { padding-right: 64px; }
+.numberField i { color: #788179; font-size: 10px; font-style: normal; pointer-events: none; position: absolute; right: 13px; }
+.startChoice { border: 0; border-top: 1px solid rgba(217, 255, 136, 0.1); margin: 16px 0 0; padding: 14px 0 0; }
+.startChoice legend { color: var(--agent-lime); font-size: 9px; font-weight: 760; letter-spacing: 0.08em; padding: 0 0 8px; text-transform: uppercase; }
+.startChoice > div:first-of-type { display: grid; gap: 7px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.startChoice button { background: transparent; border: 1px solid rgba(238, 246, 232, 0.12); border-radius: 9px; color: #aeb7ad; cursor: pointer; font: inherit; font-size: 10px; min-height: 38px; padding: 8px; }
+.startChoice button:hover, .startChoice button.selectedChoice { background: rgba(217, 255, 136, 0.1); border-color: rgba(217, 255, 136, 0.38); color: var(--agent-lime); }
+.startChoice > small { color: #727c73; display: block; font-size: 9px; line-height: 1.55; margin-top: 10px; }
 .contextHeading { align-items: baseline; display: flex; gap: 10px; justify-content: space-between; }
 .contextHeading > span { color: var(--agent-lime); font-size: 10px; font-weight: 780; letter-spacing: 0.11em; text-transform: uppercase; }
 .contextHeading small { color: #6f7970; font-size: 9px; }
@@ -392,6 +402,7 @@
   .moreSettings > summary { align-items: flex-start; }
   .moreSettings > summary small { display: none; }
   .planSummaryGrid { grid-template-columns: 1fr; }
+  .planningFields, .startChoice > div:first-of-type { grid-template-columns: 1fr; }
   .studyReminderCard { grid-template-columns: 1fr; }
   .rhythmHeading { align-items: flex-start; flex-direction: column; }
   .handoffAction { grid-template-columns: 1fr; }

@@ -25,6 +25,17 @@ const relationshipSchema = z.object({
   reason: z.string().min(1),
 });
 
+const optionalDateSchema = z.union([z.literal(''), z.string().regex(/^\d{4}-\d{2}-\d{2}$/)]);
+
+const explicitPlanningSignalsSchema = z.object({
+  dailyMinutes: z.number().int().min(5).max(720).nullable(),
+  sessionMinutes: z.number().int().min(5).max(180).nullable(),
+  daysPerWeek: z.number().int().min(1).max(7).nullable(),
+  preferredTime: z.union([z.literal(''), z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)]),
+  startDate: optionalDateSchema,
+  targetDate: optionalDateSchema,
+});
+
 const learnerContextSchema = z.object({
   learningPreferences: z.string().describe('Learner-controlled description of what helps them study.'),
   constraints: z.string().describe('Time, energy, work, family, accessibility, or other stated constraints.'),
@@ -34,6 +45,12 @@ const learnerContextSchema = z.object({
   energyWindow: z.enum(['morning', 'midday', 'evening', 'variable']),
   preferredTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   reminderOptIn: z.boolean(),
+  dailyMinutes: z.number().int().min(5).max(720).nullable(),
+  startMode: z.enum(['now', 'scheduled', 'undecided']),
+  startDate: optionalDateSchema,
+  targetDate: optionalDateSchema,
+  timeZone: z.string(),
+  explicitPlanningSignals: explicitPlanningSignalsSchema,
 });
 
 const rhythmPlanSchema = z.object({
@@ -59,6 +76,11 @@ const planSettingsSchema = z.object({
   energyWindow: z.enum(['morning', 'midday', 'evening', 'variable']),
   preferredTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   reminderOptIn: z.boolean(),
+  dailyMinutes: z.number().int().min(5).max(720).nullable(),
+  startMode: z.enum(['now', 'scheduled', 'undecided']),
+  startDate: optionalDateSchema,
+  targetDate: optionalDateSchema,
+  timeZone: z.string(),
   rationale: z.string().min(1).describe('A concise, evidence-grounded explanation of the inferred settings.'),
 });
 
@@ -75,7 +97,9 @@ const persistLearningModel = new FunctionTool({
     learnerContext: learnerContextSchema,
     rhythmPlan: rhythmPlanSchema,
     planSettings: planSettingsSchema,
-    nextRetrievalPrompt: z.string().min(1),
+    nextRetrievalPrompts: z.array(z.string().min(1)).min(2).max(8).describe(
+      'An ordered retrieval queue. Create one attempt-based prompt per inferred theme; when there is only one theme, create two distinct retrieval angles.',
+    ),
     mutationSummary: z.string().min(1),
   }),
   execute: async (input) => {
@@ -160,19 +184,19 @@ export const rootAgent = new LlmAgent({
     'An autonomous learning partner that transforms messy evidence and retrieval feedback into a persistent, adaptive knowledge path.',
   instruction: `You are NoteFlow, a collaborative learning partner—not a general chat assistant.
 
-Your job is to lead the learner from messy notes and retrieval evidence to exactly one high-value next retrieval move. You actively synthesize and mutate the learning model instead of merely summarizing text.
+Your job is to lead the learner from messy notes and retrieval evidence to a small, high-value retrieval queue. You actively synthesize and mutate the learning model instead of merely summarizing text.
 
 Operating contract:
 1. Identify the learner ID, goal, evidence, and learner-controlled context in the request. Never diagnose personality, psychology, neurology, or medical conditions.
 2. If essential decision-changing context is genuinely absent, return only a CLARIFICATION section containing exactly one concise question and stop. Do not ask for information that would not change the rhythm or retrieval path.
-3. Otherwise infer an adjustable plan from the learner's natural language before selecting content. Persist planSettings with: a continuous pace bias between steady and sprint, a flexible session-duration range, an invitation-frequency range, pattern, energy window, optional role baseline, and inferred themes. Ranges guide invitations and session stopping points; they never cap how often the learner may voluntarily study. Treat numeric learnerContext fields as safe fallbacks when the natural language does not support a more specific inference. A missed invitation never becomes overdue work.
+3. Otherwise infer an adjustable plan from the learner's natural language before selecting content. Treat the goal, source notes, learning preferences, constraints, clarification, and explicitPlanningSignals as one merged instruction. Explicit numeric/date/time statements override defaults. Preserve the distinction between a daily total budget and a per-session duration: “one hour a day” means dailyMinutes=60, not necessarily a 60-minute session. Persist planSettings with: a continuous pace bias between steady and sprint, a flexible session-duration range, an invitation-frequency range, daily time budget, start mode/date/time, target date, time zone, pattern, energy window, optional role baseline, and inferred themes. Ranges guide invitations and session stopping points; they never cap how often the learner may voluntarily study. Treat numeric learnerContext fields as safe fallbacks only when the merged instruction has no explicit signal. A missed invitation never becomes overdue work. When startMode is undecided, set notificationMode to off and do not imply that a reminder has been scheduled.
 4. Infer concepts, gaps, and prerequisite relationships. Separate direct evidence from inference.
-5. Choose exactly one next retrieval prompt that requires an attempt, not recognition.
+5. Create an ordered queue of 2–8 retrieval prompts that require attempts, not recognition. Produce one prompt for each inferred theme; if there is only one theme, produce two distinct retrieval angles for it. Keep every prompt independently usable as a NoteFlow card.
 6. Call persist_learning_model whenever you create or revise either the knowledge model or learning rhythm. Include learnerContext, rhythmPlan, and planSettings. Ensure each maximum is greater than or equal to its minimum. Never claim persistence unless the tool reports status "persisted".
 7. When retrieval feedback arrives, compare the prior rhythm with the new evidence, revise only what the evidence supports, and explain the before-to-after change.
 8. Call queue_deep_analysis only when useful work can continue asynchronously. Never claim a job is queued unless the tool reports status "queued".
 9. Keep private source material out of Pub/Sub; send only a safe digest.
 
-For completed planning and feedback turns, return six short sections in this exact order: DIAGNOSIS, RHYTHM PLAN, NEXT INVITATION, NEXT RETRIEVAL, MODEL MUTATION, BACKGROUND WORK. State tool status truthfully. Do not expose hidden chain-of-thought.`,
+For completed planning and feedback turns, return six short sections in this exact order: DIAGNOSIS, RHYTHM PLAN, NEXT INVITATION, NEXT RETRIEVAL, MODEL MUTATION, BACKGROUND WORK. In NEXT RETRIEVAL, show the ordered prompts as a numbered list matching nextRetrievalPrompts. State tool status truthfully. Do not expose hidden chain-of-thought.`,
   tools: [persistLearningModel, queueDeepAnalysis],
 });

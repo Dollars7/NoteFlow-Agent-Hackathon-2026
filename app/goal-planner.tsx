@@ -1,26 +1,31 @@
 "use client";
 
-import { skillScopes, type GoalProfile } from "../lib/flow-engine";
+import type { GoalProfile, SkillState } from "../lib/flow-engine";
 import { useLocale } from "./locale";
 
 type GoalPlannerProps = {
   profile: GoalProfile;
+  skills: SkillState[];
   onChange: (profile: GoalProfile) => void;
   agentGenerated?: boolean;
 };
 
-export function GoalPlanner({ profile, onChange, agentGenerated = false }: GoalPlannerProps) {
-  const { locale, t } = useLocale();
+export function GoalPlanner({
+  profile,
+  skills,
+  onChange,
+  agentGenerated = false,
+}: GoalPlannerProps) {
+  const { t } = useLocale();
   const update = (patch: Partial<GoalProfile>) => onChange({ ...profile, ...patch });
   const paceLabel = profile.paceBias < 34
     ? t("Retention-first", "记忆优先")
     : profile.paceBias > 66
       ? t("Goal-first", "目标优先")
       : t("Balanced", "均衡");
-  const scopeLabel = (id: string, fallback: string) => {
-    if (locale === "en") return fallback;
-    return { intervals: "区间", ood: "对象设计", expression: "技术英语", spring: "Spring / JWT", graph: "图算法" }[id] ?? fallback;
-  };
+  const scheduleConfirmed = profile.startMode === "now"
+    || (profile.startMode === "scheduled" && Boolean(profile.startDate && profile.preferredTime));
+  const themeScopes = skills.map((skill) => ({ id: skill.id, label: skill.name }));
 
   const toggleScope = (skillId: string) => {
     update({
@@ -129,33 +134,80 @@ export function GoalPlanner({ profile, onChange, agentGenerated = false }: GoalP
               </select>
             </label>
             <label>
-              <span>{t("Preferred reminder time", "偏好的提醒时间")}</span>
-              <input type="time" value={profile.preferredTime} onChange={(event) => update({ preferredTime: event.target.value })} />
+              <span>{t("Daily time available · optional", "每天可投入时长 · 可选")}</span>
+              <input
+                type="number"
+                min="5"
+                max="720"
+                step="5"
+                value={profile.dailyMinutes ?? ""}
+                onChange={(event) => update({ dailyMinutes: event.target.value ? Number(event.target.value) : null })}
+                placeholder={t("Minutes", "分钟")}
+              />
             </label>
-            {profile.paceBias >= 60 && (
-              <label>
-                <span>{t("Target date · optional", "目标日期 · 可选")}</span>
-                <input type="date" value={profile.sprintDeadline} onChange={(event) => update({ sprintDeadline: event.target.value })} />
-              </label>
-            )}
+            <label>
+              <span>{t("Goal or delivery date · optional", "考试或交付日期 · 可选")}</span>
+              <input type="date" value={profile.sprintDeadline} onChange={(event) => update({ sprintDeadline: event.target.value })} />
+            </label>
           </div>
+
+          <fieldset className="plan-start-picker">
+            <legend>{t("When should learning start?", "什么时候开始学习？")}</legend>
+            <div className="mode-switch plan-start-switch">
+              {([
+                ["undecided", t("Decide later", "稍后再定")],
+                ["now", t("Start now", "现在开始")],
+                ["scheduled", t("Choose a time", "指定时间")],
+              ] as const).map(([value, label]) => (
+                <button
+                  type="button"
+                  className={profile.startMode === value ? "selected" : ""}
+                  onClick={() => update({
+                    startMode: value,
+                    reminderOptIn: value === "undecided" ? false : profile.reminderOptIn,
+                  })}
+                  key={value}
+                >{label}</button>
+              ))}
+            </div>
+            {profile.startMode === "scheduled" && (
+              <div className="planner-fields plan-start-fields">
+                <label>
+                  <span>{t("Start date", "开始日期")}</span>
+                  <input type="date" value={profile.startDate} onChange={(event) => update({ startDate: event.target.value })} />
+                </label>
+                <label>
+                  <span>{t("Start time", "开始时间")}</span>
+                  <input type="time" value={profile.preferredTime} onChange={(event) => update({ preferredTime: event.target.value })} />
+                </label>
+              </div>
+            )}
+            <p>{scheduleConfirmed
+              ? t("Start time confirmed. Reminder options are now available.", "开始时间已确认，现在可以设置提醒。")
+              : t("No calendar event or reminder will be created until this is confirmed.", "确认开始时间之前，不会创建日历事件或提醒。")}</p>
+          </fieldset>
 
           <fieldset className="scope-picker">
             <legend>{agentGenerated ? t("Themes inferred from your input", "根据输入生成的主题") : t("What should this session include?", "这次只学哪些知识")}</legend>
             <div className="scope-chips">
               {agentGenerated
-                ? profile.themes.map((theme) => <span className="generated-theme" key={theme}>{theme}</span>)
+                ? themeScopes.map((scope) => <span className="generated-theme" key={scope.id}>{scope.label}</span>)
                 : <>
                     <button type="button" className={profile.focusSkillIds.length === 0 ? "selected" : ""} onClick={() => update({ focusSkillIds: [] })}>{t("All knowledge", "全部知识")}</button>
-                    {skillScopes.map((scope) => (
-                      <button type="button" className={profile.focusSkillIds.includes(scope.id) ? "selected" : ""} onClick={() => toggleScope(scope.id)} key={scope.id}>{scopeLabel(scope.id, scope.label)}</button>
+                    {themeScopes.map((scope) => (
+                      <button type="button" className={profile.focusSkillIds.includes(scope.id) ? "selected" : ""} onClick={() => toggleScope(scope.id)} key={scope.id}>{scope.label}</button>
                     ))}
                   </>}
             </div>
           </fieldset>
 
           <label className="plan-reminder-choice">
-            <input type="checkbox" checked={profile.reminderOptIn} onChange={(event) => update({ reminderOptIn: event.target.checked })} />
+            <input
+              type="checkbox"
+              checked={profile.reminderOptIn}
+              disabled={!scheduleConfirmed}
+              onChange={(event) => update({ reminderOptIn: event.target.checked })}
+            />
             <span>{t("Offer optional study reminders", "提供可选学习提醒")}</span>
           </label>
         </div>

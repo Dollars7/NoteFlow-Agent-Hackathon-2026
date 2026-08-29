@@ -24,6 +24,7 @@ test("declares the mandatory Google agent stack and honest preview behavior", as
   assert.match(agent, /modelName = 'gemini-3\.5-flash'/);
   assert.match(agent, /new LlmAgent/);
   assert.match(agent, /name: 'persist_learning_model'/);
+  assert.match(agent, /nextRetrievalPrompts: z\.array/);
   assert.match(agent, /batch\.create\(versionRef, payload\)/);
   assert.match(agent, /name: 'queue_deep_analysis'/);
   assert.match(agent, /publishMessage\(\{json: job\}\)/);
@@ -31,6 +32,10 @@ test("declares the mandatory Google agent stack and honest preview behavior", as
   assert.match(agent, /rhythmPlanSchema/);
   assert.match(agent, /planSettingsSchema/);
   assert.match(agent, /paceBias/);
+  assert.match(agent, /explicitPlanningSignalsSchema/);
+  assert.match(agent, /dailyMinutes/);
+  assert.match(agent, /startMode/);
+  assert.match(agent, /one hour a day/);
   assert.match(agent, /NEXT INVITATION/);
   assert.match(agent, /no persistence was claimed/i);
   assert.match(agent, /no background job was claimed/i);

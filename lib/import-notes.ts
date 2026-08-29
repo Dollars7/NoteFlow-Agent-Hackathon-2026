@@ -200,7 +200,7 @@ export function parseNoteImport(
           : locale === "zh"
             ? ["先说出核心定义。", "解释它解决的问题。", "给出一个自己的例子。"]
             : ["State the core definition first.", "Explain the problem it solves.", "Give one example of your own."],
-      goalRelevance: { "amazon-sde2": 0.65, "google-l4": 0.65 },
+      goalRelevance: 0.65,
       dependencyValue: 0.5,
       uncertainty: 0.8,
     });

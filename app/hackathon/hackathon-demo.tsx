@@ -4,13 +4,18 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   extractAgentSection,
   extractAgentText,
+  extractExplicitPlanningSignals,
   extractGeneratedPlan,
   extractNextRetrieval,
+  extractNextRetrievalPrompts,
+  createRetrievalTitle,
   hackathonHandoffKey,
   normalizeGeneratedPlan,
+  projectKnowledgeAreas,
   type GeneratedPlanSettings,
   type HackathonHandoff,
   type LearnerContext,
+  type StartMode,
   type StudyPattern,
   type EnergyWindow,
 } from "../../lib/hackathon-handoff";
@@ -67,7 +72,12 @@ const previewGeneratedPlans: Record<Locale, GeneratedPlanSettings> = {
     studyPattern: "short-frequent",
     energyWindow: "evening",
     preferredTime: "19:00",
-    reminderOptIn: true,
+    reminderOptIn: false,
+    dailyMinutes: null,
+    startMode: "undecided",
+    startDate: "",
+    targetDate: "",
+    timeZone: "America/Phoenix",
     rationale: "A near-term interview and busy weekdays favor short, frequent verbal retrieval with stronger goal relevance.",
   },
   zh: {
@@ -82,22 +92,15 @@ const previewGeneratedPlans: Record<Locale, GeneratedPlanSettings> = {
     studyPattern: "short-frequent",
     energyWindow: "evening",
     preferredTime: "19:00",
-    reminderOptIn: true,
+    reminderOptIn: false,
+    dailyMinutes: null,
+    startMode: "undecided",
+    startDate: "",
+    targetDate: "",
+    timeZone: "America/Phoenix",
     rationale: "近期面试目标和繁忙工作日更适合少量多次的口述检索，并提高目标相关内容的权重。",
   },
 };
-
-function nextReminderDate(preferredTime: string): Date {
-  const [hours, minutes] = preferredTime.split(":").map(Number);
-  const next = new Date();
-  next.setHours(hours, minutes, 0, 0);
-  if (next.getTime() <= Date.now() + 60_000) next.setDate(next.getDate() + 1);
-  return next;
-}
-
-function formatIcsDate(value: Date): string {
-  return value.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
-}
 
 function inlineMarkdown(source: string): ReactNode[] {
   return source.split(/(\*\*[^*]+\*\*|\*[^*]+\*|_[^_]+_|`[^`]+`)/g).filter(Boolean).map((part, index) => {
@@ -149,7 +152,11 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
   const [daysPerWeek, setDaysPerWeek] = useState(5);
   const [energyWindow, setEnergyWindow] = useState<EnergyWindow>("evening");
   const [preferredTime, setPreferredTime] = useState("19:00");
-  const [reminderOptIn, setReminderOptIn] = useState(true);
+  const [reminderOptIn, setReminderOptIn] = useState(false);
+  const [dailyMinutes, setDailyMinutes] = useState<number | null>(null);
+  const [startMode, setStartMode] = useState<StartMode>("undecided");
+  const [startDate, setStartDate] = useState("");
+  const [targetDate, setTargetDate] = useState("");
   const [answer, setAnswer] = useState("");
   const [stage, setStage] = useState<Stage>("intake");
   const [agentText, setAgentText] = useState("");
@@ -157,12 +164,22 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
   const [rhythmPlan, setRhythmPlan] = useState("");
   const [nextInvitation, setNextInvitation] = useState("");
   const [generatedPlan, setGeneratedPlan] = useState<GeneratedPlanSettings | null>(null);
-  const [reminderStatus, setReminderStatus] = useState("");
+  const [retrievalPrompts, setRetrievalPrompts] = useState<string[]>([]);
   const [progressStep, setProgressStep] = useState(0);
   const [resultLocale, setResultLocale] = useState<Locale | null>(null);
   const [localeNotice, setLocaleNotice] = useState("");
-  const reminderTimer = useRef<number | null>(null);
   const progressTimers = useRef<number[]>([]);
+
+  const explicitPlanningSignals = useMemo(() => {
+    const inferred = extractExplicitPlanningSignals(goal, notes, learningPreferences, constraints, answer);
+    return {
+      ...inferred,
+      dailyMinutes: dailyMinutes ?? inferred.dailyMinutes,
+      preferredTime: inferred.preferredTime || (startMode === "scheduled" ? preferredTime : ""),
+      startDate: startDate || inferred.startDate,
+      targetDate: targetDate || inferred.targetDate,
+    };
+  }, [answer, constraints, dailyMinutes, goal, learningPreferences, notes, preferredTime, startDate, startMode, targetDate]);
 
   const learnerContext = useMemo<LearnerContext>(() => ({
     learningPreferences: learningPreferences.trim(),
@@ -173,7 +190,13 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
     energyWindow,
     preferredTime,
     reminderOptIn,
-  }), [constraints, daysPerWeek, energyWindow, learningPreferences, preferredTime, reminderOptIn, sessionMinutes, studyPattern]);
+    dailyMinutes: explicitPlanningSignals.dailyMinutes,
+    startMode,
+    startDate,
+    targetDate,
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    explicitPlanningSignals,
+  }), [constraints, daysPerWeek, energyWindow, explicitPlanningSignals, learningPreferences, preferredTime, reminderOptIn, sessionMinutes, startDate, startMode, studyPattern, targetDate]);
   const evidenceMissing = notes.trim().length === 0;
   const nextRetrieval = useMemo(
     () => agentText ? extractNextRetrieval(agentText, resultLocale ?? locale) : "",
@@ -203,6 +226,7 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
     setRhythmPlan("");
     setNextInvitation("");
     setGeneratedPlan(null);
+    setRetrievalPrompts([]);
     setResultLocale(null);
     setProgressStep(0);
     setStage("intake");
@@ -243,6 +267,10 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
     setEnergyWindow(plan.energyWindow);
     setPreferredTime(plan.preferredTime);
     setReminderOptIn(plan.reminderOptIn);
+    setDailyMinutes(plan.dailyMinutes);
+    setStartMode(plan.startMode);
+    setStartDate(plan.startDate);
+    setTargetDate(plan.targetDate);
   }
 
   async function runAgent(action: "plan" | "clarification" = "plan") {
@@ -257,27 +285,32 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
     startProgress(action);
     setStage("running");
     setAgentText("");
-    setReminderStatus("");
     setLocaleNotice("");
     if (action === "plan") {
       setContinuationToken("");
       setRhythmPlan("");
       setNextInvitation("");
       setGeneratedPlan(null);
+      setRetrievalPrompts([]);
       setResultLocale(null);
     }
 
     if (!connected) {
       window.setTimeout(() => {
         const preview = previewPlans[requestLocale];
-        setAgentText(
-          requestLocale === "zh"
-            ? `诊断\n${preview.diagnosis}\n\n学习节奏\n${preview.rhythm}\n\n下次邀请\n${preview.invitation}\n\n下一次检索\n${preview.nextPrompt}\n\n知识模型更新\n${preview.mutation}`
-            : `DIAGNOSIS\n${preview.diagnosis}\n\nRHYTHM PLAN\n${preview.rhythm}\n\nNEXT INVITATION\n${preview.invitation}\n\nNEXT RETRIEVAL\n${preview.nextPrompt}\n\nKNOWLEDGE MODEL UPDATE\n${preview.mutation}`,
-        );
+        const previewReport = requestLocale === "zh"
+          ? `诊断\n${preview.diagnosis}\n\n学习节奏\n${preview.rhythm}\n\n下次邀请\n${preview.invitation}\n\n下一次检索\n${preview.nextPrompt}\n\n知识模型更新\n${preview.mutation}`
+          : `DIAGNOSIS\n${preview.diagnosis}\n\nRHYTHM PLAN\n${preview.rhythm}\n\nNEXT INVITATION\n${preview.invitation}\n\nNEXT RETRIEVAL\n${preview.nextPrompt}\n\nKNOWLEDGE MODEL UPDATE\n${preview.mutation}`;
+        const previewPlan = normalizeGeneratedPlan(previewGeneratedPlans[requestLocale], {
+          goal,
+          locale: requestLocale,
+          learnerContext,
+        });
+        setAgentText(previewReport);
         setRhythmPlan(preview.rhythm);
         setNextInvitation(preview.invitation);
-        applyGeneratedPlan(previewGeneratedPlans[requestLocale]);
+        setRetrievalPrompts(extractNextRetrievalPrompts(null, previewReport, previewPlan.themes, requestLocale));
+        applyGeneratedPlan(previewPlan);
         setResultLocale(requestLocale);
         stopProgress(4);
         setStage("complete");
@@ -316,7 +349,9 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
         setStage("clarifying");
         return;
       }
-      applyGeneratedPlan(extractGeneratedPlan(payload.events, { goal, locale: requestLocale, learnerContext }));
+      const plan = extractGeneratedPlan(payload.events, { goal, locale: requestLocale, learnerContext });
+      applyGeneratedPlan(plan);
+      setRetrievalPrompts(extractNextRetrievalPrompts(payload.events, report, plan.themes, requestLocale));
       setRhythmPlan(extractAgentSection(report, ["rhythm plan", "学习节奏"]));
       setNextInvitation(extractAgentSection(report, ["next invitation", "下次邀请"]));
       stopProgress(4);
@@ -334,74 +369,51 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
   function reviewPlanBeforeSession() {
     if (!agentText || stage !== "complete") return;
     const handoffLocale = resultLocale ?? locale;
+    const finalPlan = generatedPlan ?? normalizeGeneratedPlan(null, { goal: goal.trim(), locale: handoffLocale, learnerContext });
+    const projectId = `learning-project-${Date.now()}`;
+    const prompts = retrievalPrompts.length > 0
+      ? retrievalPrompts
+      : extractNextRetrievalPrompts(null, agentText, finalPlan.themes, handoffLocale);
+    const retrievalPrompt = prompts[0];
+    const knowledgeAreas = projectKnowledgeAreas(finalPlan.themes);
     const handoff: HackathonHandoff = {
-      id: `agent-retrieval-${Date.now()}`,
+      id: projectId,
       locale: handoffLocale,
       goal: goal.trim(),
       sourceNotes: notes.trim(),
-      title: handoffLocale === "zh" ? "Agent 选择的练习" : "Agent-selected practice",
-      nextRetrievalPrompt: extractNextRetrieval(agentText, handoffLocale),
+      title: createRetrievalTitle(retrievalPrompt, finalPlan.themes, handoffLocale),
+      nextRetrievalPrompts: prompts,
       agentReport: agentText,
       continuationToken,
       learnerContext,
       rhythmPlan,
       nextInvitation,
-      generatedPlan: generatedPlan ?? normalizeGeneratedPlan(null, { goal: goal.trim(), locale: handoffLocale, learnerContext }),
+      generatedPlan: finalPlan,
+      project: {
+        id: projectId,
+        goal: goal.trim(),
+        sourceNotes: notes.trim(),
+        learningPreferences: learningPreferences.trim(),
+        constraints: constraints.trim(),
+        themes: finalPlan.themes,
+        knowledgeAreas,
+        schedule: {
+          startMode: finalPlan.startMode,
+          startDate: finalPlan.startDate,
+          startTime: finalPlan.preferredTime,
+          targetDate: finalPlan.targetDate,
+          timeZone: finalPlan.timeZone,
+          dailyMinutes: finalPlan.dailyMinutes,
+          sessionMinutesMin: finalPlan.sessionMinutesMin,
+          sessionMinutesMax: finalPlan.sessionMinutesMax,
+          invitationsPerWeekMin: finalPlan.invitationsPerWeekMin,
+          invitationsPerWeekMax: finalPlan.invitationsPerWeekMax,
+        },
+      },
       createdAt: new Date().toISOString(),
     };
     window.localStorage.setItem(hackathonHandoffKey, JSON.stringify(handoff));
     window.location.assign("/demo?source=agent");
-  }
-
-  function downloadCalendarInvitation() {
-    const startsAt = nextReminderDate(preferredTime);
-    const endsAt = new Date(startsAt.getTime() + sessionMinutes * 60_000);
-    const title = t("NoteFlow study reminder", "NoteFlow 学习提醒");
-    const description = t(
-      "Open NoteFlow and complete the single retrieval selected for this rhythm. Stopping after it is allowed.",
-      "打开 NoteFlow，完成当前节奏选择的一次检索；做完即可停止。",
-    );
-    const ics = [
-      "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//NoteFlow//Learning Rhythm//EN", "CALSCALE:GREGORIAN",
-      "BEGIN:VEVENT", `UID:noteflow-${Date.now()}@noteflow`, `DTSTAMP:${formatIcsDate(new Date())}`,
-      `DTSTART:${formatIcsDate(startsAt)}`, `DTEND:${formatIcsDate(endsAt)}`,
-      `SUMMARY:${title}`, `DESCRIPTION:${description}`, "BEGIN:VALARM", "TRIGGER:-PT10M",
-      "ACTION:DISPLAY", `DESCRIPTION:${title}`, "END:VALARM", "END:VEVENT", "END:VCALENDAR",
-    ].join("\r\n");
-    const url = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "noteflow-study-reminder.ics";
-    link.click();
-    URL.revokeObjectURL(url);
-    setReminderStatus(t("Calendar reminder downloaded.", "日历提醒已下载。"));
-  }
-
-  async function enableBrowserReminder() {
-    if (!("Notification" in window)) {
-      setReminderStatus(t("This browser does not support notifications. Use the calendar reminder instead.", "当前浏览器不支持通知，请改用日历提醒。"));
-      return;
-    }
-    const permission = await Notification.requestPermission();
-    if (permission !== "granted") {
-      setReminderStatus(t("Notification permission was not enabled.", "未开启通知权限。"));
-      return;
-    }
-    const startsAt = nextReminderDate(preferredTime);
-    window.localStorage.setItem("noteflow-next-reminder-v1", JSON.stringify({ at: startsAt.toISOString(), rhythmPlan }));
-    if (reminderTimer.current) window.clearTimeout(reminderTimer.current);
-    const delay = startsAt.getTime() - Date.now();
-    if (delay <= 2_147_483_647) {
-      reminderTimer.current = window.setTimeout(() => {
-        new Notification(t("Your NoteFlow study reminder", "你的 NoteFlow 学习提醒到了"), {
-          body: t("Open one retrieval. There is no overdue work.", "只做一次检索，没有逾期任务。"),
-        });
-      }, delay);
-    }
-    new Notification(t("NoteFlow reminder enabled", "NoteFlow 提醒已开启"), {
-      body: t(`Next reminder: ${startsAt.toLocaleString()}`, `下次提醒：${startsAt.toLocaleString()}`),
-    });
-    setReminderStatus(t("Browser reminder enabled. Keep the calendar reminder for use after the tab closes.", "浏览器提醒已开启；关闭页面后可使用日历提醒。"));
   }
 
   const traceSteps = [
@@ -510,9 +522,64 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
                   rows={2}
                 />
               </label>
+              <div className={styles.planningFields}>
+                <label className={styles.field}>
+                  <span>{t("Time available each day · optional", "每天大约可投入多久 · 可选")}</span>
+                  <div className={styles.numberField}>
+                    <input
+                      type="number"
+                      min="5"
+                      max="720"
+                      step="5"
+                      value={dailyMinutes ?? ""}
+                      onChange={(event) => setDailyMinutes(event.target.value ? Number(event.target.value) : null)}
+                      placeholder="60"
+                    />
+                    <i>{t("minutes", "分钟")}</i>
+                  </div>
+                </label>
+                <label className={styles.field}>
+                  <span>{t("Goal or delivery date · optional", "考试或交付日期 · 可选")}</span>
+                  <input type="date" value={targetDate} onChange={(event) => setTargetDate(event.target.value)} />
+                </label>
+              </div>
+
+              <fieldset className={styles.startChoice}>
+                <legend>{t("When should the plan begin?", "计划什么时候开始？")}</legend>
+                <div>
+                  {([
+                    ["undecided", t("Decide later", "稍后再定")],
+                    ["now", t("Start now", "现在开始")],
+                    ["scheduled", t("Schedule it", "指定时间")],
+                  ] as const).map(([value, label]) => (
+                    <button
+                      type="button"
+                      className={startMode === value ? styles.selectedChoice : ""}
+                      onClick={() => setStartMode(value)}
+                      key={value}
+                    >{label}</button>
+                  ))}
+                </div>
+                {startMode === "scheduled" && (
+                  <div className={styles.planningFields}>
+                    <label className={styles.field}>
+                      <span>{t("Start date", "开始日期")}</span>
+                      <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+                    </label>
+                    <label className={styles.field}>
+                      <span>{t("Start time", "开始时间")}</span>
+                      <input type="time" value={preferredTime} onChange={(event) => setPreferredTime(event.target.value)} />
+                    </label>
+                  </div>
+                )}
+                <small>{t(
+                  "Calendar and reminder controls appear only after a start time is confirmed on the review page.",
+                  "只有在确认页确定开始时间后，才会出现日历和提醒操作。",
+                )}</small>
+              </fieldset>
               <p className={styles.inferenceNote}>{t(
-                "The Agent proposes adjustable ranges. These settings never limit learning you start yourself.",
-                "Agent 会生成可调整的范围；这些设置不会限制你主动开始学习。",
+                "Anything written in these fields is merged into one instruction. Explicit numbers override defaults, while daily budget and per-session length remain separate.",
+                "这里填写的内容都会汇总进同一条指令；明确数字优先于默认值，并且“每日总时长”和“单次时长”会分开处理。",
               )}</p>
             </div>
           </details>
@@ -524,6 +591,7 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
               <span>{t("One question that changes the plan", "一个会改变计划的问题")}</span>
               <p>{extractAgentSection(agentText, ["clarification", "澄清问题"])}</p>
               <input
+                autoFocus
                 value={answer}
                 onChange={(event) => setAnswer(event.target.value)}
                 placeholder={t("Answer in your own words", "用你自己的话回答")}
@@ -631,6 +699,20 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
                   <span>{t("Study reminders", "学习提醒")}</span>
                   <strong>{generatedPlan.invitationsPerWeekMin}–{generatedPlan.invitationsPerWeekMax}× / {t("week", "周")}</strong>
                 </div>
+                <div>
+                  <span>{t("Daily time budget", "每日时间预算")}</span>
+                  <strong>{generatedPlan.dailyMinutes
+                    ? <>{generatedPlan.dailyMinutes} min</>
+                    : t("Not specified", "未指定")}</strong>
+                </div>
+                <div>
+                  <span>{t("Start", "开始时间")}</span>
+                  <strong>{generatedPlan.startMode === "now"
+                    ? t("Start now", "现在开始")
+                    : generatedPlan.startMode === "scheduled" && generatedPlan.startDate
+                      ? generatedPlan.startDate + " · " + generatedPlan.preferredTime
+                      : t("Decide on review page", "在确认页再决定")}</strong>
+                </div>
               </div>
             </div>
           ) : agentText ? (
@@ -650,19 +732,6 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
               <MarkdownReport source={agentText} />
               <a href={markdownDownloadHref} download="noteflow-learning-plan.md">{t("Download full report (.md)", "下载完整报告（.md）")}</a>
             </details>
-          )}
-          {stage === "complete" && reminderOptIn && (
-            <div className={styles.studyReminderCard}>
-              <div>
-                <span>{t("Optional study reminder", "可选学习提醒")}</span>
-                <strong>{nextInvitation || t("Use the time shown in your reviewed plan.", "使用确认计划中显示的提醒时间。")}</strong>
-              </div>
-              <div className={styles.reminderActions}>
-                <button type="button" onClick={downloadCalendarInvitation}>{t("Add reminder to calendar", "添加到日历")}</button>
-                <button type="button" onClick={() => void enableBrowserReminder()}>{t("Enable browser reminder", "开启浏览器提醒")}</button>
-              </div>
-              {reminderStatus && <small className={styles.reminderStatus}>{reminderStatus}</small>}
-            </div>
           )}
           {stage === "complete" && agentText && (
             <div className={styles.handoffAction}>

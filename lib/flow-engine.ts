@@ -1,8 +1,5 @@
-export type GoalId = "amazon-sde2" | "google-l4";
-
 export type GoalProfile = {
   title: string;
-  baseGoal: GoalId;
   roleBaseline: string;
   themes: string[];
   paceBias: number;
@@ -14,6 +11,10 @@ export type GoalProfile = {
   energyWindow: "morning" | "midday" | "evening" | "variable";
   preferredTime: string;
   reminderOptIn: boolean;
+  dailyMinutes: number | null;
+  startMode: "now" | "scheduled" | "undecided";
+  startDate: string;
+  timeZone: string;
   sprintDeadline: string;
   focusSkillIds: string[];
 };
@@ -41,7 +42,7 @@ export type NoteCard = {
   hintKeywords: string[];
   scaffold: string[];
   noteMarkdown: string;
-  goalRelevance: Record<GoalId, number>;
+  goalRelevance: number;
   dependencyValue: number;
   uncertainty: number;
 };
@@ -74,14 +75,8 @@ type RankedCard = NoteCard & {
   hiddenPriority: number;
 };
 
-export const goals: Record<GoalId, { label: string; shortLabel: string }> = {
-  "amazon-sde2": { label: "Amazon · SDE II", shortLabel: "Amazon" },
-  "google-l4": { label: "Google · L4 SWE", shortLabel: "Google" },
-};
-
 export const defaultGoalProfile: GoalProfile = {
   title: "Amazon SDE II",
-  baseGoal: "amazon-sde2",
   roleBaseline: "Amazon · SDE II",
   themes: ["Intervals", "Object Design", "Technical English", "Spring / JWT", "Graphs"],
   paceBias: 25,
@@ -93,17 +88,13 @@ export const defaultGoalProfile: GoalProfile = {
   energyWindow: "evening",
   preferredTime: "19:00",
   reminderOptIn: false,
+  dailyMinutes: null,
+  startMode: "undecided",
+  startDate: "",
+  timeZone: "",
   sprintDeadline: "",
   focusSkillIds: [],
 };
-
-export const skillScopes = [
-  { id: "intervals", label: "Intervals" },
-  { id: "ood", label: "Object Design" },
-  { id: "expression", label: "Technical English" },
-  { id: "spring", label: "Spring / JWT" },
-  { id: "graph", label: "Graphs" },
-] as const;
 
 export const initialSkills: SkillState[] = [
   { id: "intervals", name: "Intervals", mastery: 0.72, retention: 0.48, expression: 0.61, confidence: 0.74 },
@@ -140,7 +131,7 @@ The later start is the first moment when both intervals could be active. The ear
 - Touching endpoints are not an overlap for half-open intervals.
 - Decide the interval convention before coding.
 - This invariant is the prerequisite for sweep-line and meeting-room problems.`,
-    goalRelevance: { "amazon-sde2": 0.82, "google-l4": 0.72 },
+    goalRelevance: 0.82,
     dependencyValue: 0.94,
     uncertainty: 0.28,
   },
@@ -176,7 +167,7 @@ The heap contains the end time of every room currently in use. Its smallest valu
 ### Complexity
 
 Sorting dominates at **O(n log n)**. Every interval enters and leaves the heap at most once.`,
-    goalRelevance: { "amazon-sde2": 0.97, "google-l4": 0.78 },
+    goalRelevance: 0.97,
     dependencyValue: 0.82,
     uncertainty: 0.31,
   },
@@ -194,7 +185,7 @@ Sorting dominates at **O(n log n)**. Every interval enters and leaves the heap a
       "Let a dispatcher depend on the contract rather than concrete channels.",
     ],
     noteMarkdown: "",
-    goalRelevance: { "amazon-sde2": 0.95, "google-l4": 0.54 },
+    goalRelevance: 0.95,
     dependencyValue: 0.88,
     uncertainty: 0.76,
   },
@@ -222,7 +213,7 @@ I use it when multiple classes should be interchangeable, or when I want high-le
 - Start with the contract.
 - Name the coupling problem it removes.
 - End with one real implementation example.`,
-    goalRelevance: { "amazon-sde2": 0.83, "google-l4": 0.81 },
+    goalRelevance: 0.83,
     dependencyValue: 0.61,
     uncertainty: 0.69,
   },
@@ -251,7 +242,7 @@ I use it when multiple classes should be interchangeable, or when I want high-le
 ### Common failure
 
 Parsing a token is not authentication. The request becomes authenticated only after validated identity and authorities are placed into the SecurityContext.`,
-    goalRelevance: { "amazon-sde2": 0.64, "google-l4": 0.49 },
+    goalRelevance: 0.64,
     dependencyValue: 0.63,
     uncertainty: 0.45,
   },
@@ -281,7 +272,7 @@ The visited map is not only a cycle guard. It is the identity map from each orig
 ### Complexity
 
 Every node and edge is visited once: **O(V + E)** time and **O(V)** auxiliary space, excluding the output graph.`,
-    goalRelevance: { "amazon-sde2": 0.66, "google-l4": 0.99 },
+    goalRelevance: 0.99,
     dependencyValue: 0.8,
     uncertainty: 0.43,
   },
@@ -321,7 +312,7 @@ export function rankCards(
       const skill = skills.find((item) => item.id === card.skillId);
       const skillRetention = skill?.retention ?? 0.5;
       const masteryGap = 1 - (skill?.mastery ?? 0.5);
-      const goalRelevance = card.goalRelevance[profile.baseGoal];
+      const goalRelevance = card.goalRelevance;
       const cardMemory = memory[card.id] ?? {
         intervalScale: 1,
         skipCount: 0,
