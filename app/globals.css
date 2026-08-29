@@ -1656,6 +1656,32 @@ input:focus-visible {
   width: 100%;
 }
 
+.library-project-toggle {
+  background: rgba(255, 255, 255, 0.018);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: -5px 0 13px;
+  padding: 3px;
+}
+
+.library-project-toggle button {
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--dim);
+  cursor: pointer;
+  font-size: 9px;
+  min-height: 31px;
+  padding: 6px 8px;
+}
+
+.library-project-toggle button.selected {
+  background: var(--lime-soft);
+  color: var(--lime);
+}
+
 .note-list {
   display: flex;
   flex-direction: column;

@@ -19,6 +19,7 @@ type EditableCardFields =
 
 type NoteLibraryProps = {
   cards: NoteCard[];
+  activeProjectTag?: string;
   skills: SkillState[];
   selectedId: string;
   onSelect: (id: string) => void;
@@ -70,6 +71,7 @@ function TagEditor({
 
 export function NoteLibrary({
   cards,
+  activeProjectTag = "",
   skills,
   selectedId,
   onSelect,
@@ -88,14 +90,23 @@ export function NoteLibrary({
   const [importOpen, setImportOpen] = useState(false);
   const [importPreview, setImportPreview] = useState<NoteImportResult | null>(null);
   const [importFallbackSkill, setImportFallbackSkill] = useState(skills[0]?.id ?? "intervals");
+  const [showAllProjects, setShowAllProjects] = useState(false);
 
-  const selected = cards.find((card) => card.id === selectedId) ?? cards[0];
+  const projectCards = useMemo(() => activeProjectTag
+    ? cards.filter((card) => {
+        const projectTags = (card.tags ?? []).filter((tag) => tag.startsWith("project:"));
+        return projectTags.length === 0 || projectTags.includes(activeProjectTag);
+      })
+    : cards, [activeProjectTag, cards]);
+  const visibleCards = showAllProjects ? cards : projectCards;
+  const hiddenProjectCount = cards.length - projectCards.length;
+  const selected = visibleCards.find((card) => card.id === selectedId) ?? visibleCards[0];
   const skillName = skills.find((skill) => skill.id === selected?.skillId)?.name;
 
   const filteredCards = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    if (!normalized) return cards;
-    return cards.filter((card) =>
+    if (!normalized) return visibleCards;
+    return visibleCards.filter((card) =>
       [
         card.title,
         card.prompt,
@@ -104,7 +115,7 @@ export function NoteLibrary({
         skills.find((skill) => skill.id === card.skillId)?.name ?? card.skillId,
       ].some((value) => value.toLowerCase().includes(normalized)),
     );
-  }, [cards, query, skills]);
+  }, [query, skills, visibleCards]);
 
   const allFilteredSelected =
     filteredCards.length > 0 && filteredCards.every((card) => selectedIds.has(card.id));
@@ -196,6 +207,17 @@ export function NoteLibrary({
           />
         </label>
 
+        {activeProjectTag && hiddenProjectCount > 0 && (
+          <div className="library-project-toggle" role="group" aria-label={t("Project visibility", "项目显示范围")}>
+            <button type="button" className={!showAllProjects ? "selected" : ""} onClick={() => setShowAllProjects(false)}>
+              {t("Current project", "当前项目")}
+            </button>
+            <button type="button" className={showAllProjects ? "selected" : ""} onClick={() => setShowAllProjects(true)}>
+              {t(`Show all projects · ${cards.length}`, `显示所有项目 · ${cards.length}`)}
+            </button>
+          </div>
+        )}
+
         <div className="selection-heading">
           <label>
             <input
@@ -204,7 +226,7 @@ export function NoteLibrary({
               onChange={toggleAllFiltered}
               aria-label={t("Select current search results", "选择当前搜索结果")}
             />
-            <span>{selectedIds.size > 0 ? t(`${selectedIds.size} selected`, `已选择 ${selectedIds.size} 项`) : t(`${cards.length} total`, `共 ${cards.length} 项`)}</span>
+            <span>{selectedIds.size > 0 ? t(`${selectedIds.size} selected`, `已选择 ${selectedIds.size} 项`) : t(`${visibleCards.length} total`, `共 ${visibleCards.length} 项`)}</span>
           </label>
           {selectedIds.size > 0 && (
             <button type="button" onClick={() => setSelectedIds(new Set())}>{t("Clear selection", "取消选择")}</button>

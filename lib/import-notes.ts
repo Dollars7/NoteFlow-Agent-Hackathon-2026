@@ -187,6 +187,7 @@ export function parseNoteImport(
 
     cards.push({
       id: `${idPrefix}-${rowIndex + 1}`,
+      origin: "import",
       title,
       prompt,
       noteMarkdown,

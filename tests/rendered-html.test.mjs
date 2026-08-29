@@ -212,6 +212,8 @@ test("implements dual auth, unified notes, scoped scheduling, and private persis
   assert.match(serverAuth, /persistSession: false/);
 
   assert.match(engine, /type NoteCard/);
+  assert.match(engine, /type CardOrigin = "agent" \| "import" \| "manual" \| "prerequisite" \| "gap"/);
+  assert.match(engine, /origin: CardOrigin/);
   assert.match(engine, /tags: string\[\]/);
   assert.match(engine, /focusSkillIds/);
   assert.match(engine, /sprintUrgency/);
@@ -227,12 +229,16 @@ test("implements dual auth, unified notes, scoped scheduling, and private persis
   assert.match(clientApp, /是否继续不会进入调度权重/);
   assert.match(clientApp, /authorization: `Bearer \$\{accessToken\}`/);
   assert.match(clientApp, /noteflow-memory-v5:\$\{user\.id\}:\$\{agentHandoff\?\.id/);
+  assert.match(clientApp, /noteflow-library-v1:\$\{user\.id\}/);
   assert.match(clientApp, /restoredProjectState/);
   assert.match(clientApp, /deletedCardIds/);
   assert.match(clientApp, /bulkAddTag/);
 
   assert.match(noteLibrary, /一个对象 · 两个视图/);
   assert.match(noteLibrary, /Markdown 笔记 · 卡片背面/);
+  assert.match(noteLibrary, /Show all projects/);
+  assert.match(noteLibrary, /showAllProjects/);
+  assert.match(importer, /origin: "import"/);
   assert.match(noteLibrary, /批量移动到/);
   assert.match(noteLibrary, /导入 CSV 或 Anki 文件/);
   assert.match(importer, /front.*back.*tags/i);
@@ -314,6 +320,9 @@ test("defaults to English, keeps Chinese in place, and reviews Agent plans befor
   assert.doesNotMatch(clientApp, /index % Math\.max\(projectSkills\.length/);
   assert.match(clientApp, /ranked\.filter\(\(id\) => id !== agentHandoff\.id\)/);
   assert.match(clientApp, /syncAgentFeedback/);
+  assert.match(clientApp, /card\.origin !== "agent"/);
+  assert.match(clientApp, /projectTags\.length === 0 \|\| projectTags\.includes\(activeProjectTag\)/);
+  assert.match(clientApp, /if \(phase !== "pre" && phase !== "idle" && phase !== "post"\) finishSession\(\)/);
   assert.match(clientApp, /Visible plan mutation/);
   assert.match(clientApp, /moveCurrentCardToEnd/);
   assert.match(clientApp, /Later this session · move to queue end/);

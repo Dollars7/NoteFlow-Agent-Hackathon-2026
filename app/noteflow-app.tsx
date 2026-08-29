@@ -165,10 +165,8 @@ function SkillStateView({
 
 function AgentPlanPreview({
   handoff,
-  onOpenNotes,
 }: {
   handoff: HackathonHandoff;
-  onOpenNotes: () => void;
 }) {
   const { t } = useLocale();
   const themes = handoff.generatedPlan?.themes ?? [];
@@ -193,23 +191,6 @@ function AgentPlanPreview({
           <div>{themes.map((theme) => <i key={theme}>{theme}</i>)}</div>
         </div>
       )}
-      <div className="plan-library-entry">
-        <div>
-          <span>{t("Before learning", "开始学习前")}</span>
-          <strong>{t(
-            "Prepare the notes this plan will use",
-            "先准备这次计划要用的笔记",
-          )}</strong>
-          <p>{t(
-            "Review the Agent-generated card, import notes you already have, or create your own. Return here to start when the material is ready.",
-            "查看 Agent 生成的卡片、导入已有笔记，或添加自己的内容。资料设置完成后，再回来开始学习。",
-          )}</p>
-        </div>
-        <button type="button" onClick={onOpenNotes}>
-          {t("Open Notes", "打开笔记库")}
-          <span aria-hidden="true">→</span>
-        </button>
-      </div>
     </section>
   );
 }
@@ -220,6 +201,7 @@ function buildPrerequisiteCard(source: NoteCard, locale: Locale): NoteCard {
   if (locale === "en") {
     return {
       id: `prereq-${source.id}`,
+      origin: "prerequisite",
       skillId: source.skillId,
       tags: [...new Set([...(source.tags ?? []), "prerequisite"])],
       mode: "recall",
@@ -250,6 +232,7 @@ This prerequisite card came from a “no direction” signal. It is not a debt.`
 
   return {
     id: `prereq-${source.id}`,
+    origin: "prerequisite",
     skillId: source.skillId,
     tags: [...new Set([...(source.tags ?? []), "prerequisite"])],
     mode: "recall",
@@ -310,6 +293,7 @@ function projectCardsForHandoff(
 
     return {
       id: index === 0 ? handoff.id : `${handoff.id}-retrieval-${index + 1}`,
+      origin: "agent",
       skillId,
       tags: ["agent-selected", projectTag, "retrieval", skillId],
       mode: retrievalCard.mode,
@@ -340,11 +324,24 @@ function formatIcsDate(value: Date): string {
 
 function normalizeStoredCard(card: NoteCard): NoteCard {
   const rawRelevance = (card as unknown as { goalRelevance?: unknown }).goalRelevance;
-  if (typeof rawRelevance === "number") return card;
+  const rawOrigin = (card as unknown as { origin?: unknown }).origin;
+  const validOrigins = ["agent", "import", "manual", "prerequisite", "gap"];
+  const origin = typeof rawOrigin === "string" && validOrigins.includes(rawOrigin)
+    ? rawOrigin as NoteCard["origin"]
+    : card.tags?.includes("agent-selected")
+      ? "agent"
+      : card.tags?.includes("prerequisite")
+        ? "prerequisite"
+        : card.tags?.includes("gap-card")
+          ? "gap"
+          : card.id.startsWith("import-") || card.id.startsWith("anki-")
+            ? "import"
+            : "manual";
+  if (typeof rawRelevance === "number") return { ...card, origin };
   const legacyValues = rawRelevance && typeof rawRelevance === "object"
     ? Object.values(rawRelevance).filter((value): value is number => typeof value === "number")
     : [];
-  return { ...card, goalRelevance: legacyValues.length > 0 ? Math.max(...legacyValues) : 0.65 };
+  return { ...card, origin, goalRelevance: legacyValues.length > 0 ? Math.max(...legacyValues) : 0.65 };
 }
 
 export default function NoteFlowApp({
@@ -356,6 +353,7 @@ export default function NoteFlowApp({
 }: NoteFlowAppProps) {
   const { locale, t } = useLocale();
   const storageKey = `noteflow-memory-v5:${user.id}:${agentHandoff?.id ?? "default"}`;
+  const sharedLibraryKey = `noteflow-library-v1:${user.id}`;
   const legacyUserStorageKey = `noteflow-memory-v4:${user.id}`;
   const legacyAccountStorageKey = `noteflow-memory-v3:${user.email.trim().toLowerCase()}`;
   const [phase, setPhase] = useState<Phase>("pre");
@@ -393,11 +391,11 @@ export default function NoteFlowApp({
   const reminderTimer = useRef<number | null>(null);
   const activeProjectTag = agentHandoff ? "project:" + (agentHandoff.project?.id ?? agentHandoff.id) : "";
 
-  const allCards = useMemo(() => {
+  const libraryCards = useMemo(() => {
     const edits = new Map(generatedCards.map((card) => [card.id, card]));
     const baseIds = new Set(noteCards.map((card) => card.id));
-    const merged = activeProjectTag
-      ? generatedCards.filter((card) => card.tags?.includes(activeProjectTag))
+    const merged = agentHandoff
+      ? generatedCards
       : [
           ...noteCards.map((card) => edits.get(card.id) ?? card),
           ...generatedCards.filter((card) => !baseIds.has(card.id)),
@@ -413,8 +411,14 @@ export default function NoteFlowApp({
             ? generatedNotes[card.id]
             : card.noteMarkdown,
       }));
-  }, [activeProjectTag, deletedCardIds, generatedCards, generatedNotes]);
-  const currentCard = allCards.find((card) => card.id === sessionQueue[0]);
+  }, [agentHandoff, deletedCardIds, generatedCards, generatedNotes]);
+  const allCards = useMemo(() => activeProjectTag
+    ? libraryCards.filter((card) => {
+        const projectTags = (card.tags ?? []).filter((tag) => tag.startsWith("project:"));
+        return projectTags.length === 0 || projectTags.includes(activeProjectTag);
+      })
+    : libraryCards, [activeProjectTag, libraryCards]);
+  const currentCard = libraryCards.find((card) => card.id === sessionQueue[0]);
 
   useEffect(() => {
     const awaitingAgentHandoff = !agentHandoff
@@ -506,12 +510,44 @@ export default function NoteFlowApp({
         }
 
         if (parsed) applyStored(parsed);
+        try {
+          const sharedSaved = window.localStorage.getItem(sharedLibraryKey);
+          const sharedCards = sharedSaved ? JSON.parse(sharedSaved) as NoteCard[] : [];
+          const discoveredCards = Array.isArray(sharedCards) ? [...sharedCards] : [];
+          const scopedPrefix = `noteflow-memory-v5:${user.id}:`;
+          for (let index = 0; index < window.localStorage.length; index += 1) {
+            const key = window.localStorage.key(index);
+            if (!key?.startsWith(scopedPrefix)) continue;
+            try {
+              const scoped = JSON.parse(window.localStorage.getItem(key) ?? "null") as StoredMemory | null;
+              if (Array.isArray(scoped?.generatedCards)) discoveredCards.push(...scoped.generatedCards);
+            } catch {
+              // Ignore one damaged project snapshot while recovering the rest of the library.
+            }
+          }
+          const normalizedShared = [...new Map(
+            discoveredCards
+              .map(normalizeStoredCard)
+              .filter((card) => card.origin === "import" || card.origin === "manual")
+              .map((card) => [card.id, card]),
+          ).values()];
+          if (normalizedShared.length > 0) {
+            setGeneratedCards((current) => {
+              const merged = new Map(normalizedShared.map((card) => [card.id, card]));
+              current.forEach((card) => merged.set(card.id, card));
+              return [...merged.values()];
+            });
+            setCardMemory((memory) => ({ ...createInitialCardMemory(normalizedShared), ...memory }));
+          }
+        } catch {
+          window.localStorage.removeItem(sharedLibraryKey);
+        }
         setHasRestored(true);
       })();
     });
 
     return () => window.cancelAnimationFrame(restoreFrame);
-  }, [agentHandoff, getAccessToken, legacyAccountStorageKey, legacyUserStorageKey, storageKey]);
+  }, [agentHandoff, getAccessToken, legacyAccountStorageKey, legacyUserStorageKey, sharedLibraryKey, storageKey, user.id]);
 
   useEffect(() => {
     if (!hasRestored) return;
@@ -552,6 +588,17 @@ export default function NoteFlowApp({
 
     return () => window.clearTimeout(saveTimer);
   }, [agentHandoff, cardMemory, deletedCardIds, evidence, generatedCards, generatedNotes, getAccessToken, goalProfile, hasRestored, legacyAccountStorageKey, legacyUserStorageKey, skills, storageKey]);
+
+  useEffect(() => {
+    if (!hasRestored) return;
+    const sharedCards = generatedCards
+      .filter((card) => card.origin === "import" || card.origin === "manual")
+      .map((card) => ({
+        ...card,
+        noteMarkdown: generatedNotes[card.id] ?? card.noteMarkdown,
+      }));
+    window.localStorage.setItem(sharedLibraryKey, JSON.stringify(sharedCards));
+  }, [generatedCards, generatedNotes, hasRestored, sharedLibraryKey]);
 
   useEffect(() => {
     if (!hasRestored || !agentHandoff || appliedHandoffId.current === agentHandoff.id) return;
@@ -597,9 +644,12 @@ export default function NoteFlowApp({
       setCardMemory((memory) => ({ ...createInitialCardMemory(launchCards), ...memory }));
     } else {
       setSkills(projectSkills.length ? projectSkills : [primarySkill]);
-      setCardMemory(createInitialCardMemory(launchCards));
+      setCardMemory((memory) => ({ ...memory, ...createInitialCardMemory(launchCards) }));
       setEvidence([]);
-      setGeneratedCards(launchCards);
+      setGeneratedCards((cards) => [
+        ...cards.filter((card) => card.origin === "import" || card.origin === "manual"),
+        ...launchCards,
+      ]);
       setGeneratedNotes({});
       setDeletedCardIds([]);
     }
@@ -652,6 +702,11 @@ export default function NoteFlowApp({
     clearRecording();
     setSessionQueue([]);
     setPhase("post");
+  };
+
+  const openNotes = () => {
+    if (phase !== "pre" && phase !== "idle" && phase !== "post") finishSession();
+    setWorkspaceView("notes");
   };
 
   const advanceToNextCard = () => {
@@ -757,6 +812,7 @@ Do not aim for a complete answer yet. Explain the missing concept, connection, o
 
     const gapCard: NoteCard = {
       id: cardId,
+      origin: "gap",
       skillId: currentCard.skillId,
       tags: [...new Set([...(currentCard.tags ?? []), "gap-card"])],
       mode: "recall",
@@ -800,7 +856,7 @@ This is not a debt. It has returned to the scheduling pool as an independent car
   };
 
   const syncAgentFeedback = async (card: NoteCard, feedback: MemoryFeedback, delta: MemoryDelta) => {
-    if (!agentHandoff?.continuationToken || !card.tags?.includes("agent-selected")) return;
+    if (!agentHandoff?.continuationToken || card.origin !== "agent") return;
     setAgentSyncStage("running");
     setRhythmRevision(null);
 
@@ -921,6 +977,7 @@ This is not a debt. It has returned to the scheduling pool as an independent car
     const skillId = goalProfile.focusSkillIds[0] ?? skills[0]?.id ?? "general";
     const card: NoteCard = {
       id: cardId,
+      origin: "manual",
       skillId,
       tags: activeProjectTag ? [skillId, activeProjectTag] : [skillId],
       mode: "recall",
@@ -957,7 +1014,7 @@ This is not a debt. It has returned to the scheduling pool as an independent car
     const ids = new Set(cardIds);
     setGeneratedCards((cards) => {
       const edits = new Map(cards.map((card) => [card.id, card]));
-      allCards
+      libraryCards
         .filter((card) => ids.has(card.id))
         .forEach((card) => edits.set(card.id, { ...card, ...patch }));
       return [...edits.values()];
@@ -968,7 +1025,7 @@ This is not a debt. It has returned to the scheduling pool as an independent car
     const ids = new Set(cardIds);
     setGeneratedCards((cards) => {
       const edits = new Map(cards.map((card) => [card.id, card]));
-      allCards
+      libraryCards
         .filter((card) => ids.has(card.id))
         .forEach((card) =>
           edits.set(card.id, {
@@ -987,6 +1044,7 @@ This is not a debt. It has returned to the scheduling pool as an independent car
       const merged = new Map(cards.map((card) => [card.id, card]));
       cardsToImport.forEach((card) => merged.set(card.id, {
         ...card,
+        origin: "import",
         skillId: skills.some((skill) => skill.id === card.skillId) ? card.skillId : (skills[0]?.id ?? card.skillId),
         tags: [...new Set([...(card.tags ?? []), ...(activeProjectTag ? [activeProjectTag] : [])])],
       }));
@@ -1014,14 +1072,12 @@ This is not a debt. It has returned to the scheduling pool as an independent car
     setSessionQueue((queue) => queue.filter((id) => !removed.has(id)));
 
     if (removed.has(selectedNoteId)) {
-      setSelectedNoteId(allCards.find((card) => !removed.has(card.id))?.id ?? "");
+      setSelectedNoteId(libraryCards.find((card) => !removed.has(card.id))?.id ?? "");
     }
   };
 
   const openLearning = () => {
     clearRecording();
-    setSessionQueue([]);
-    setPhase((current) => current === "pre" ? "pre" : agentHandoff ? "idle" : "pre");
     setWorkspaceView("learn");
   };
 
@@ -1147,7 +1203,7 @@ This is not a debt. It has returned to the scheduling pool as an independent car
               <button
                 type="button"
                 className={workspaceView === "notes" ? "selected" : ""}
-                onClick={() => setWorkspaceView("notes")}
+                onClick={openNotes}
               >
                 {t("Notes", "笔记库")}
               </button>
@@ -1168,6 +1224,9 @@ This is not a debt. It has returned to the scheduling pool as an independent car
               ? <span className="content-language-badge">{agentHandoff.locale === "zh" ? "中文内容" : "English content"}</span>
               : <LanguageSwitch />}
             <span>{t("Retrieval in progress", "检索中")}</span>
+            <button className="quiet-button notes-during-session" type="button" onClick={openNotes}>
+              {t("Notes", "笔记库")}
+            </button>
             <button className="quiet-button" type="button" onClick={finishSession}>{t("End this session", "结束本次学习")}</button>
           </div>
         ) : (
@@ -1214,7 +1273,8 @@ This is not a debt. It has returned to the scheduling pool as an independent car
 
       {(phase === "pre" || phase === "idle" || phase === "post") && workspaceView === "notes" && (
         <NoteLibrary
-          cards={allCards}
+          cards={libraryCards}
+          activeProjectTag={activeProjectTag}
           skills={skills}
           selectedId={selectedNoteId}
           onSelect={setSelectedNoteId}
@@ -1260,7 +1320,7 @@ This is not a debt. It has returned to the scheduling pool as an independent car
             </button>
           </div>
           {agentHandoff
-            ? <AgentPlanPreview handoff={agentHandoff} onOpenNotes={() => setWorkspaceView("notes")} />
+            ? <AgentPlanPreview handoff={agentHandoff} />
             : <SkillStateView skills={skills} eyebrow={t("Before session", "Session 前")} title={t("Current skill state", "当前能力状态")} isGuest={isGuest} />}
         </section>
       )}
@@ -1286,6 +1346,20 @@ This is not a debt. It has returned to the scheduling pool as an independent car
               </button>
               <button className="secondary-button" type="button" onClick={() => setPhase("pre")}>
                 {t("Adjust plan", "调整计划")}
+              </button>
+            </div>
+            <div className="plan-library-entry home-library-entry">
+              <div>
+                <span>{t("Your material", "你的学习资料")}</span>
+                <strong>{t("Prepare the notes this plan will use", "准备这次计划要用的笔记")}</strong>
+                <p>{t(
+                  "Review Agent cards, import notes you already have, or create your own before starting.",
+                  "查看 Agent 卡片、导入已有笔记，或在开始前添加自己的内容。",
+                )}</p>
+              </div>
+              <button type="button" onClick={openNotes}>
+                {t("Open Notes", "打开笔记库")}
+                <span aria-hidden="true">→</span>
               </button>
             </div>
             <div className="idle-schedule-actions">

@@ -30,9 +30,11 @@ export type SkillState = {
 
 export type RetrievalMode = "recall" | "solve" | "speak" | "design";
 export type MemoryFeedback = "guided" | "prerequisite" | "overlearned";
+export type CardOrigin = "agent" | "import" | "manual" | "prerequisite" | "gap";
 
 export type NoteCard = {
   id: string;
+  origin: CardOrigin;
   skillId: string;
   tags: string[];
   prerequisiteCardId?: string;
@@ -107,6 +109,7 @@ export const initialSkills: SkillState[] = [
 export const noteCards: NoteCard[] = [
   {
     id: "interval-overlap",
+    origin: "manual",
     skillId: "intervals",
     tags: ["intervals", "fundamentals"],
     mode: "recall",
@@ -137,6 +140,7 @@ The later start is the first moment when both intervals could be active. The ear
   },
   {
     id: "meeting-rooms",
+    origin: "manual",
     skillId: "intervals",
     tags: ["intervals", "heap", "interview"],
     prerequisiteCardId: "interval-overlap",
@@ -173,6 +177,7 @@ Sorting dominates at **O(n log n)**. Every interval enters and leaves the heap a
   },
   {
     id: "notification-ood",
+    origin: "manual",
     skillId: "ood",
     tags: ["ood", "system-design"],
     mode: "design",
@@ -191,6 +196,7 @@ Sorting dominates at **O(n log n)**. Every interval enters and leaves the heap a
   },
   {
     id: "interface-english",
+    origin: "manual",
     skillId: "expression",
     tags: ["technical-english", "java", "interview"],
     mode: "speak",
@@ -219,6 +225,7 @@ I use it when multiple classes should be interchangeable, or when I want high-le
   },
   {
     id: "jwt-recall",
+    origin: "manual",
     skillId: "spring",
     tags: ["spring", "security", "jwt"],
     mode: "recall",
@@ -248,6 +255,7 @@ Parsing a token is not authentication. The request becomes authenticated only af
   },
   {
     id: "graph-traversal",
+    origin: "manual",
     skillId: "graph",
     tags: ["graphs", "dfs", "interview"],
     mode: "solve",
