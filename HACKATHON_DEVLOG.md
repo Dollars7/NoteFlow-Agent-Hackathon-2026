@@ -46,7 +46,7 @@ All timestamps use America/Phoenix (UTC-07:00 during the contest). This log reco
 - Removed disabled Google and email controls from deployments without Supabase configuration; the optional account page now states honestly that guest learning remains available.
 - Reduced the Agent intake to one explicit run action instead of a hidden two-click clarification sequence.
 - Added a direct handoff from the Agent report to the guest learning workspace. The selected retrieval prompt, learning goal, source evidence, and Agent report now become a real practice card and open immediately in the retrieval flow.
-- Verified the production build, TypeScript compilation, and five automated tests. This repair remains local and was not republished to the unwanted `chatgpt.site` address.
+- Verified the production build, TypeScript compilation, and five automated tests. No new public deployment was made during this repair.
 - Public judging flow repair commit: `05e82f7` (`fix: connect public Agent flow to learning`).
 
 ## 2026-08-22 — Submission README refresh
@@ -152,6 +152,24 @@ All timestamps use America/Phoenix (UTC-07:00 during the contest). This log reco
 - Made persistence provenance explicit: Firestore stores contest-period Agent models and immutable versions; guest handoff and retrieval state stay in the browser; Supabase is pre-existing authentication; Cloudflare D1 is not mounted on the Vercel judge deployment; initial skills and cards are disclosed demo seed data.
 - Passed root and Agent TypeScript checks, eight automated tests, the standard Next.js production build, and the Vinext compatibility build. Published implementation commit `82e919a` (`feat: simplify plan flow and lock content language`) and confirmed the Vercel deployment succeeded.
 - Ran a public validation through the stable domain: empty learning material returned HTTP 400, while a simple English planning run returned HTTP 200, a signed continuation, and structured plan settings. The final English Agent report contained no Chinese characters.
+
+## 2026-08-28 — Submission drafts and final-deliverable alignment
+
+- Prepared a copy-ready English Devpost draft covering the problem, value, Collaborative Partner fit, Google technology, architecture, data sources, testing instructions, findings, future work, and explicit pre-existing-foundation boundary.
+- Prepared a timed English demo script targeting 3:45–3:55, including an unedited public Agent run and visible Cloud Run, Firestore, Pub/Sub, and private-worker completion evidence.
+- Added a recording safety checklist so the video does not expose service secrets, environment values, billing details, private notes, or personal identifiers.
+- Rechecked the production demo and public standalone repository before drafting. Both were publicly reachable, and the hosted product rendered the latest default-English simplified planning flow.
+- Updated the internal submission tracker to reflect that the standalone repository is already public. Final submission remains pending the recorded public video and Devpost form review.
+- Produced a judge-facing 3:2 PNG architecture diagram showing the public Vercel flow, server-only proxy, Google ADK and Gemini service on Cloud Run, Firestore versions, Pub/Sub queue, private OIDC worker, browser-state boundary, feedback loop, and verified cloud proof identifiers.
+- Reworked the first dense diagram after visual review. The final two-layer layout separates the five-step learning loop from the deployed Google Cloud path, removes internal proof identifiers from the main composition, and gives the Agent judgment and feedback-driven mutation visual priority.
+
+## 2026-08-29 — Clean-machine reproducibility and submission alignment
+
+- Unified the repository and Agent service on Node.js 24.13+, added `.nvmrc`, and aligned the documented install and validation commands with a clean checkout.
+- Restricted local ADK discovery to `agent.ts`; verified the service starts without the Cloud Run shared secret and returns HTTP 200 with `["agent"]` from `/list-apps`.
+- Added the three Agent-entry assertions to the default suite. All 13 automated tests, full lint, root and Agent TypeScript checks, Vinext compatibility build, and Vercel production build passed.
+- Removed the obsolete OpenAI hosting project file and its build/test coupling, aligned `.env.example` with the server-only Agent variables, and moved the submission tracker out of the judge-facing README.
+- Updated README, Devpost draft, architecture documentation, and the judge-facing diagram for multi-card sessions, native `.apkg` ingestion, signed feedback continuation, and the mandatory Google technology stack.
 
 ## Logging rules
 

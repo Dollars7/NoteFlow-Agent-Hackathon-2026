@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import {
   hackathonHandoffKey,
   isHackathonHandoff,
@@ -9,9 +9,31 @@ import {
 import { useLocale } from "../locale";
 import NoteFlowApp from "../noteflow-app";
 
+let cachedHandoffSource: string | null | undefined;
+let cachedHandoff: HackathonHandoff | null = null;
+
+function readAgentHandoff(): HackathonHandoff | null {
+  if (new URLSearchParams(window.location.search).get("source") !== "agent") return null;
+  const source = window.localStorage.getItem(hackathonHandoffKey);
+  if (source === cachedHandoffSource) return cachedHandoff;
+  cachedHandoffSource = source;
+  if (!source) return (cachedHandoff = null);
+  try {
+    const parsed = JSON.parse(source) as unknown;
+    return (cachedHandoff = isHackathonHandoff(parsed) ? parsed : null);
+  } catch {
+    return (cachedHandoff = null);
+  }
+}
+
+function subscribeToAgentHandoff(callback: () => void) {
+  window.addEventListener("storage", callback);
+  return () => window.removeEventListener("storage", callback);
+}
+
 export function GuestWorkspace() {
-  const { setLocale, t } = useLocale();
-  const [agentHandoff, setAgentHandoff] = useState<HackathonHandoff | null>(null);
+  const { t } = useLocale();
+  const agentHandoff = useSyncExternalStore(subscribeToAgentHandoff, readAgentHandoff, () => null);
   const getAccessToken = useCallback(async () => null, []);
   const onSignOut = useCallback(async () => undefined, []);
   const guestUser = {
@@ -20,22 +42,6 @@ export function GuestWorkspace() {
     email: "",
     authProvider: "guest",
   };
-
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("source") !== "agent") return;
-    const raw = window.localStorage.getItem(hackathonHandoffKey);
-    if (!raw) return;
-    try {
-      const parsed = JSON.parse(raw) as unknown;
-      if (isHackathonHandoff(parsed)) {
-        setLocale(parsed.locale);
-        setAgentHandoff(parsed);
-      }
-    } catch {
-      // Remove an invalid handoff and open the normal guest workspace.
-      window.localStorage.removeItem(hackathonHandoffKey);
-    }
-  }, [setLocale]);
 
   return (
     <NoteFlowApp

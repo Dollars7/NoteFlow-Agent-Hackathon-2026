@@ -57,11 +57,13 @@ Prerequisites: Node.js 24.13+, pnpm 11.19+, a Google Cloud project, and Applicat
 3. Enable Vertex AI, Firestore, Pub/Sub, Cloud Run, Cloud Build, and Artifact Registry APIs.
 4. Create a Firestore Native database in the project.
 5. Create the Pub/Sub topic `noteflow-deep-analysis`.
-6. Install dependencies with `pnpm --ignore-workspace install`.
+6. Install dependencies with `pnpm install --frozen-lockfile`. The nested workspace allow-list permits the required native build scripts without an interactive approval step.
 7. Start the local ADK API server with `pnpm dev`.
 8. Confirm `http://localhost:8000/list-apps` returns `["agent"]`.
 
 The server accepts the standard ADK session and `/run` endpoints. No cloud write is reported as successful unless Firestore or Pub/Sub confirms it.
+
+`pnpm dev` loads only `agent.ts` and does not require `NOTEFLOW_AGENT_SHARED_SECRET`. That secret is required only by the Cloud Run HTTP entry point, `node server.mjs`.
 
 The worker can be smoke-tested without invoking Gemini by starting `pnpm worker` and requesting `/healthz`.
 

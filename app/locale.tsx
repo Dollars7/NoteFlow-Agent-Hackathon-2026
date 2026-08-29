@@ -6,7 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 
@@ -20,22 +20,32 @@ type LocaleContextValue = {
 
 const LocaleContext = createContext<LocaleContextValue | null>(null);
 const storageKey = "noteflow-locale";
+export const localeChangeEvent = "noteflow:locale-change";
+
+function readStoredLocale(): Locale {
+  const saved = window.localStorage.getItem(storageKey);
+  return saved === "zh" ? "zh" : "en";
+}
+
+function subscribeToLocale(callback: () => void) {
+  window.addEventListener("storage", callback);
+  window.addEventListener(localeChangeEvent, callback);
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener(localeChangeEvent, callback);
+  };
+}
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>("en");
-
-  useEffect(() => {
-    const saved = window.localStorage.getItem(storageKey);
-    if (saved === "zh" || saved === "en") setLocaleState(saved);
-  }, []);
+  const locale = useSyncExternalStore(subscribeToLocale, readStoredLocale, (): Locale => "en");
 
   useEffect(() => {
     document.documentElement.lang = locale === "zh" ? "zh-CN" : "en";
   }, [locale]);
 
   const setLocale = useCallback((nextLocale: Locale) => {
-    setLocaleState(nextLocale);
     window.localStorage.setItem(storageKey, nextLocale);
+    window.dispatchEvent(new CustomEvent<Locale>(localeChangeEvent, { detail: nextLocale }));
   }, []);
 
   const t = useCallback(

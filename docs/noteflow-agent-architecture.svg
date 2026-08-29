@@ -1,0 +1,181 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1200" viewBox="0 0 1800 1200" role="img" aria-labelledby="title desc">
+  <title id="title">NoteFlow Agent product loop and deployed Google Cloud architecture</title>
+  <desc id="desc">A two-layer architecture diagram. The top layer shows messy learning context becoming Agent judgment, an editable rhythm, a focused retrieval session, and real feedback that returns to the Agent. The bottom layer shows the public Next.js experience, signed feedback through a same-origin proxy, Google ADK and Gemini on Cloud Run, Firestore, Pub/Sub, and a private OIDC worker.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07100b"/>
+      <stop offset="1" stop-color="#0e1711"/>
+    </linearGradient>
+    <linearGradient id="lime" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d3ff79"/>
+      <stop offset="1" stop-color="#9eea50"/>
+    </linearGradient>
+    <marker id="arrowLime" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0 0L10 5L0 10Z" fill="#bfff63"/>
+    </marker>
+    <marker id="arrowSoft" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0 0L10 5L0 10Z" fill="#839488"/>
+    </marker>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000000" flood-opacity="0.22"/>
+    </filter>
+    <style>
+      .sans { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .eyebrow { font-size: 17px; font-weight: 750; letter-spacing: 3px; fill: #b7c6bb; }
+      .hero { font-size: 51px; font-weight: 760; fill: #f3f6ed; }
+      .hero-sub { font-size: 22px; font-weight: 430; fill: #9dacA1; }
+      .section { font-size: 17px; font-weight: 760; letter-spacing: 2.5px; fill: #bfff63; }
+      .step-num { font-size: 15px; font-weight: 800; letter-spacing: 1.5px; fill: #10170f; }
+      .step-title { font-size: 23px; font-weight: 720; fill: #f3f6ed; }
+      .step-title-dark { font-size: 23px; font-weight: 760; fill: #0e160d; }
+      .step-sub { font-size: 16px; font-weight: 450; fill: #9eaea3; }
+      .step-sub-dark { font-size: 16px; font-weight: 520; fill: #31412e; }
+      .box-title { font-size: 22px; font-weight: 720; fill: #f3f6ed; }
+      .box-sub { font-size: 16px; font-weight: 450; fill: #a0b0a5; }
+      .box-meta { font-size: 14px; font-weight: 620; letter-spacing: 0.5px; fill: #7f9185; }
+      .edge-label { font-size: 14px; font-weight: 700; fill: #cbd7ce; }
+      .trust { font-size: 15px; font-weight: 580; fill: #bdc9c0; }
+      .step { fill: #121c16; stroke: #344339; stroke-width: 2; }
+      .step-agent { fill: url(#lime); stroke: #d8ff91; stroke-width: 2; }
+      .surface { fill: #0e1711; stroke: #2f3e34; stroke-width: 2; }
+      .surface-cloud { fill: #101b15; stroke: #3d5748; stroke-width: 2; }
+      .service { fill: #142019; stroke: #3a5143; stroke-width: 2; }
+      .service-agent { fill: #1a2a1c; stroke: #7aa14e; stroke-width: 2; }
+      .flow { fill: none; stroke: #bfff63; stroke-width: 4; marker-end: url(#arrowLime); }
+      .flow-soft { fill: none; stroke: #839488; stroke-width: 3; marker-end: url(#arrowSoft); }
+      .flow-dashed { fill: none; stroke: #839488; stroke-width: 3; stroke-dasharray: 9 9; marker-end: url(#arrowSoft); }
+    </style>
+  </defs>
+
+  <rect width="1800" height="1200" fill="url(#background)"/>
+  <circle cx="1645" cy="30" r="330" fill="#bfff63" opacity="0.025"/>
+  <circle cx="140" cy="1210" r="410" fill="#bfff63" opacity="0.018"/>
+
+  <g class="sans">
+    <rect x="60" y="48" width="56" height="56" rx="15" fill="url(#lime)"/>
+    <text x="88" y="86" text-anchor="middle" font-size="27" font-weight="820" fill="#10170f">N</text>
+    <text x="140" y="67" class="eyebrow">ALL THINGS AGENTIC · COLLABORATIVE PARTNER</text>
+    <text x="140" y="121" class="hero">A learning plan that changes after you try.</text>
+    <text x="140" y="158" class="hero-sub">NoteFlow turns messy evidence into a focused retrieval session—and lets real memory feedback rewrite the rhythm.</text>
+
+    <text x="60" y="222" class="section">01 · THE LEARNING LOOP</text>
+
+    <g filter="url(#softShadow)">
+      <rect x="60" y="257" width="295" height="156" rx="24" class="step"/>
+      <rect x="83" y="279" width="42" height="27" rx="13.5" fill="#334237"/>
+      <text x="104" y="298" text-anchor="middle" class="eyebrow" style="font-size:13px;letter-spacing:1px">01</text>
+      <text x="84" y="344" class="step-title">Messy context</text>
+      <text x="84" y="376" class="step-sub">Goal · notes · stuck points</text>
+      <text x="84" y="400" class="step-sub">preferences · constraints</text>
+
+      <rect x="405" y="257" width="295" height="156" rx="24" class="step-agent"/>
+      <rect x="428" y="279" width="42" height="27" rx="13.5" fill="#152111" opacity="0.2"/>
+      <text x="449" y="298" text-anchor="middle" class="step-num">02</text>
+      <text x="429" y="344" class="step-title-dark">Agent judgment</text>
+      <text x="429" y="376" class="step-sub-dark">Clarify only when needed</text>
+      <text x="429" y="400" class="step-sub-dark">synthesize · choose · mutate</text>
+
+      <rect x="750" y="257" width="295" height="156" rx="24" class="step"/>
+      <rect x="773" y="279" width="42" height="27" rx="13.5" fill="#334237"/>
+      <text x="794" y="298" text-anchor="middle" class="eyebrow" style="font-size:13px;letter-spacing:1px">03</text>
+      <text x="774" y="344" class="step-title">Editable rhythm</text>
+      <text x="774" y="376" class="step-sub">Priority + Session range</text>
+      <text x="774" y="400" class="step-sub">optional study reminder</text>
+
+      <rect x="1095" y="257" width="295" height="156" rx="24" class="step"/>
+      <rect x="1118" y="279" width="42" height="27" rx="13.5" fill="#334237"/>
+      <text x="1139" y="298" text-anchor="middle" class="eyebrow" style="font-size:13px;letter-spacing:1px">04</text>
+      <text x="1119" y="344" class="step-title">Small retrieval session</text>
+      <text x="1119" y="376" class="step-sub">The learner explicitly starts</text>
+      <text x="1119" y="400" class="step-sub">NoteFlow selects today's cards</text>
+
+      <rect x="1440" y="257" width="300" height="156" rx="24" class="step"/>
+      <rect x="1463" y="279" width="42" height="27" rx="13.5" fill="#334237"/>
+      <text x="1484" y="298" text-anchor="middle" class="eyebrow" style="font-size:13px;letter-spacing:1px">05</text>
+      <text x="1464" y="344" class="step-title">Real feedback</text>
+      <text x="1464" y="376" class="step-sub">Attempt · hints · reaction</text>
+      <text x="1464" y="400" class="step-sub">memory before and after</text>
+    </g>
+
+    <path d="M355 335H405" class="flow"/>
+    <path d="M700 335H750" class="flow"/>
+    <path d="M1045 335H1095" class="flow"/>
+    <path d="M1390 335H1440" class="flow"/>
+    <path d="M1590 413V468C1590 500 1563 517 1533 517H563C533 517 553 474 553 413" class="flow-soft"/>
+    <rect x="862" y="491" width="410" height="43" rx="21.5" fill="#111b15" stroke="#314137" stroke-width="2"/>
+    <text x="1067" y="519" text-anchor="middle" class="edge-label">feedback changes the next rhythm</text>
+
+    <text x="60" y="596" class="section">02 · THE DEPLOYED PATH</text>
+
+    <rect x="60" y="632" width="330" height="348" rx="28" class="surface"/>
+    <text x="88" y="673" class="eyebrow" style="font-size:14px">PUBLIC EXPERIENCE</text>
+    <rect x="88" y="705" width="274" height="118" rx="20" class="service"/>
+    <text x="112" y="747" class="box-title">Next.js web flow</text>
+    <text x="112" y="779" class="box-sub">Vercel · no account required</text>
+    <text x="112" y="805" class="box-meta">input · plan review · retrieval</text>
+    <rect x="88" y="850" width="274" height="96" rx="20" class="service"/>
+    <text x="112" y="891" class="box-title">Browser guest state</text>
+    <text x="112" y="921" class="box-sub">temporary handoff + practice</text>
+
+    <rect x="440" y="632" width="270" height="348" rx="28" class="surface"/>
+    <text x="468" y="673" class="eyebrow" style="font-size:14px">SERVER BOUNDARY</text>
+    <rect x="468" y="705" width="214" height="241" rx="20" class="service"/>
+    <text x="575" y="750" text-anchor="middle" class="box-title">Protected proxy</text>
+    <text x="575" y="787" text-anchor="middle" class="box-sub">same-origin endpoint</text>
+    <text x="575" y="817" text-anchor="middle" class="box-sub">rate limiting</text>
+    <text x="575" y="847" text-anchor="middle" class="box-sub">server-only secret</text>
+    <line x1="508" y1="873" x2="642" y2="873" stroke="#415046" stroke-width="2"/>
+    <text x="575" y="907" text-anchor="middle" class="box-meta">signed continuation</text>
+    <text x="575" y="932" text-anchor="middle" class="box-meta">high-entropy Session ID</text>
+
+    <rect x="760" y="598" width="980" height="382" rx="30" class="surface-cloud"/>
+    <text x="790" y="641" class="eyebrow" style="font-size:14px;fill:#bfff63">GOOGLE CLOUD</text>
+    <text x="790" y="668" class="box-meta">entrant-owned project · service identities · OIDC</text>
+
+    <rect x="790" y="705" width="415" height="241" rx="22" class="service-agent"/>
+    <text x="820" y="750" class="box-title">Interactive Agent · Cloud Run</text>
+    <text x="820" y="786" class="box-sub">Google ADK for TypeScript</text>
+    <text x="820" y="816" class="box-sub">Gemini 3.5 Flash · Vertex AI</text>
+    <line x1="820" y1="844" x2="1175" y2="844" stroke="#415b42" stroke-width="2"/>
+    <text x="820" y="878" class="box-meta">persist_learning_model</text>
+    <text x="820" y="907" class="box-meta">queue_deep_analysis</text>
+
+    <rect x="1260" y="689" width="440" height="118" rx="22" class="service"/>
+    <text x="1288" y="733" class="box-title">Firestore</text>
+    <text x="1288" y="765" class="box-sub">current model + immutable versions + results</text>
+    <text x="1288" y="791" class="box-meta">source of truth for contest-period Agent state</text>
+
+    <rect x="1260" y="843" width="190" height="103" rx="22" class="service"/>
+    <text x="1286" y="884" class="box-title">Pub/Sub</text>
+    <text x="1286" y="915" class="box-sub">safe digest only</text>
+
+    <rect x="1480" y="843" width="220" height="103" rx="22" class="service"/>
+    <text x="1506" y="884" class="box-title">Private worker</text>
+    <text x="1506" y="915" class="box-sub">Cloud Run · OIDC</text>
+
+    <path d="M362 761H468" class="flow"/>
+    <text x="415" y="742" text-anchor="middle" class="edge-label" style="font-size:11px">request / signed feedback</text>
+    <path d="M682 761H790" class="flow"/>
+    <text x="736" y="746" text-anchor="middle" class="edge-label">ADK Session</text>
+    <path d="M1205 748H1260" class="flow"/>
+    <text x="1233" y="733" text-anchor="middle" class="edge-label">persist</text>
+    <path d="M1205 894H1260" class="flow"/>
+    <text x="1233" y="879" text-anchor="middle" class="edge-label">queue</text>
+    <path d="M1450 894H1480" class="flow"/>
+    <path d="M1590 843V825C1590 816 1578 811 1568 811H1480V807" class="flow-soft"/>
+    <text x="1605" y="828" class="edge-label">write result</text>
+
+    <path d="M790 923H730C720 923 710 915 710 905V882H682" class="flow-soft"/>
+    <path d="M468 882H390" class="flow-soft"/>
+    <text x="425" y="868" text-anchor="middle" class="edge-label">plan + next retrieval</text>
+
+    <rect x="60" y="1031" width="1680" height="112" rx="25" fill="#101914" stroke="#324138" stroke-width="2"/>
+    <circle cx="91" cy="1067" r="6" fill="#bfff63"/>
+    <text x="110" y="1073" class="trust">No Google credential or shared secret reaches the browser</text>
+    <circle cx="566" cy="1067" r="6" fill="#bfff63"/>
+    <text x="585" y="1073" class="trust">Every mutation creates an immutable Firestore version</text>
+    <circle cx="1053" cy="1067" r="6" fill="#bfff63"/>
+    <text x="1072" y="1073" class="trust">Pub/Sub carries a safe digest, not raw private notes</text>
+    <text x="90" y="1112" class="box-meta">The pre-existing NoteFlow retrieval foundation is disclosed separately. This diagram shows the contest-period autonomous Agent layer and its public judging path.</text>
+  </g>
+</svg>

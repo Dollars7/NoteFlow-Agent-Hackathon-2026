@@ -8,7 +8,7 @@
     "node": ">=24.13.0"
   },
   "scripts": {
-    "dev": "adk api_server",
+    "dev": "adk api_server agent.ts",
     "start": "node server.mjs",
     "test": "tsc --noEmit",
     "deploy": "adk deploy cloud_run --service_name=noteflow-agent --with_ui",

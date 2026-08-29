@@ -6,9 +6,10 @@
 **All Things Agentic Hackathon 2026 · Collaborative Partner track**
 
 - Hosted demo: https://note-flow-agent-hackathon-2026.vercel.app (no account needed)
-- Demo video: <YOUTUBE_URL>
 - Architecture diagram: [docs/architecture.png](docs/architecture.png)
 - Pre-existing work disclosure: [HACKATHON_DISCLOSURE.md](HACKATHON_DISCLOSURE.md)
+
+**Category: Collaborative Partner · Gemini 3.5 Flash (Vertex AI) · Google ADK for TypeScript · Cloud Run + Firestore + Pub/Sub**
 
 NoteFlow Agent is a learning partner that turns a goal and messy notes into a study rhythm the learner can keep, generates retrieval cards from that evidence, and revises the rhythm from real retrieval feedback. It never shows a backlog, an overdue count, or a completion rate.
 
@@ -19,7 +20,7 @@ NoteFlow Agent is a learning partner that turns a goal and messy notes into a st
 3. The Agent infers a reviewable draft: goal, optional role baseline, themes, a continuous steady-to-sprint priority, session-duration range, study-reminder frequency, study pattern, energy window, and reminder preference.
 4. The learner reviews or changes those settings, then explicitly starts the session. The ranges guide priority and study reminders; they never limit voluntary learning.
 5. An optional study reminder brings the learner back; it does not create an overdue task.
-6. NoteFlow starts a retrieval session and selects the next knowledge object from memory evidence and goal relevance.
+6. NoteFlow starts a small retrieval session and selects today's highest-value cards from memory evidence and goal relevance.
 7. The learner's attempt, stuck point, skip, and memory feedback return to the Agent.
 8. The Agent revises timing, session load, knowledge scope, and the next study reminder. Longer analysis can continue asynchronously after the learner leaves.
 
@@ -78,7 +79,7 @@ The original Flow Engine remains responsible for **what to retrieve now**. The A
 - Retrieval session with two deferral actions: move to end of session, or return to the pool
 - Attempt outcome, hint depth, reaction time, and memory change sent back to the same Agent session; before/after rhythm shown to the learner
 - Idle "plan set" state after a session — no re-planning required
-- Note library with CSV/Anki import, visible alongside Agent-generated cards
+- Note library with CSV, Anki text exports, and native `.apkg` package import, visible alongside Agent-generated cards
 - Opt-in calendar (`.ics`) export and browser reminder, only after a start time is confirmed
 
 ### What's next
@@ -148,7 +149,7 @@ These identifiers prove the evidence-to-model-to-background-job path. The later 
 
 The independent Vercel production deployment was also tested end to end on August 22, 2026. A public judge run returned `READY`, persisted immutable Firestore model version `8DopLuEwDZ4SVnk4eqyn`, and handed the Agent-selected retrieval prompt into `/demo?source=agent`.
 
-## Hosted demo and Vercel boundary
+## Deployment
 
 The current submission URL is:
 
@@ -156,21 +157,7 @@ The current submission URL is:
 https://note-flow-agent-hackathon-2026.vercel.app
 ```
 
-Vercel may report two deployable directories in this repository:
-
-1. **Import `NoteFlow-Agent-Hackathon-2026`** — this is the repository-root web experience.
-2. **Do not import `hackathon-agent` as a second Vercel website** — that directory is the protected Google ADK backend and belongs on Cloud Run.
-
-Configure these as server-only variables on the root web project:
-
-```text
-NOTEFLOW_AGENT_URL
-NOTEFLOW_AGENT_SHARED_SECRET
-```
-
-Do not expose either value with a `NEXT_PUBLIC_` prefix. A Vercel import is not considered complete until the root page, `/api/hackathon-agent`, the live Agent run, and the handoff to `/demo` have all been verified.
-
-The old `chatgpt.site` deployment is not the current submission URL.
+The web experience runs on Vercel; the protected Google ADK service and private worker run on Cloud Run. See [deployment and clean-machine reproduction](docs/DEPLOY.md) for the directory boundary, server-only variables, and verification sequence.
 
 ## Architecture
 
@@ -204,9 +191,11 @@ flowchart LR
 
 See the detailed [current architecture and trust boundaries](docs/HACKATHON_ARCHITECTURE.md).
 
+Devpost upload asset: [judge-facing PNG architecture diagram](docs/noteflow-agent-architecture.png).
+
 ## Run the web app locally
 
-Prerequisites: Node.js 22.13+ and pnpm.
+Prerequisites: Node.js 24.13+ and pnpm.
 
 ```bash
 pnpm install
@@ -221,7 +210,7 @@ Prerequisites: Node.js 24.13+, pnpm 11.19+, a Google Cloud project, and Applicat
 
 ```bash
 cd hackathon-agent
-pnpm --ignore-workspace install
+pnpm install --frozen-lockfile
 pnpm test
 pnpm dev
 ```
@@ -244,7 +233,8 @@ The earlier NoteFlow product is disclosed as pre-existing work. The repository r
 - [Dated, commit-linked development log](HACKATHON_DEVLOG.md)
 - [Architecture and contest technology mapping](docs/HACKATHON_ARCHITECTURE.md)
 - [Google Agent service and reproduction steps](hackathon-agent/README.md)
-- [Submission readiness checklist](HACKATHON_SUBMISSION_CHECKLIST.md)
+- [Copy-ready Devpost submission draft](DEVPOST_SUBMISSION_DRAFT.md)
+- [Four-minute demo video script](DEMO_VIDEO_SCRIPT.md)
 - Pre-contest baseline: `c42c840c2d881207ed6763a3280d198bc1189bfc`
 
 The stable pre-contest product remains in the original [`Dollars7/NoteFlow`](https://github.com/Dollars7/NoteFlow/tree/main) repository.
@@ -253,8 +243,5 @@ The stable pre-contest product remains in the original [`Dollars7/NoteFlow`](htt
 
 ## Submission materials
 
-- Devpost: <DEVPOST_URL>
-- Demo video (≤4 min, English subtitles): <YOUTUBE_URL>
-- Build story: <LINKEDIN_ARTICLE_URL>
 - Architecture: `docs/architecture.png`
 - Pre-existing work: `HACKATHON_DISCLOSURE.md` · Dev log: `HACKATHON_DEVLOG.md`

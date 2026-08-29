@@ -1121,8 +1121,8 @@ This is not a debt. It has returned to the scheduling pool as an independent car
       "Suggested session range: ",
       "建议单次范围：",
     ) + goalProfile.sessionMinutesMin + "–" + goalProfile.sessionMinutesMax + " min. " + t(
-      "Open NoteFlow for one retrieval; stopping after it is allowed.",
-      "打开 NoteFlow 完成一次检索；做完即可停止。",
+      "Open NoteFlow for a short retrieval session; stopping at any time is allowed.",
+      "打开 NoteFlow 进行一次短检索学习；随时可以停止。",
     );
     const ics = [
       "BEGIN:VCALENDAR",
@@ -1182,7 +1182,7 @@ This is not a debt. It has returned to the scheduling pool as an independent car
     if (delay <= 2_147_483_647) {
       reminderTimer.current = window.setTimeout(() => {
         new Notification(t("Your NoteFlow learning time is here", "你的 NoteFlow 学习时间到了"), {
-          body: t("Open one retrieval. There is no overdue work.", "只做一次检索，没有逾期任务。"),
+          body: t("Open a short retrieval session. There is no overdue work.", "打开一次短检索学习，没有逾期任务。"),
         });
       }, delay);
     }

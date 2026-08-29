@@ -183,7 +183,6 @@ test("implements dual auth, unified notes, scoped scheduling, and private persis
     packageImporter,
     apiRoute,
     schema,
-    hosting,
     packageJson,
   ] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
@@ -197,7 +196,6 @@ test("implements dual auth, unified notes, scoped scheduling, and private persis
     readFile(new URL("../lib/import-anki-package.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/state/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
-    readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
 
@@ -258,15 +256,11 @@ test("implements dual auth, unified notes, scoped scheduling, and private persis
   assert.match(apiRoute, /ON CONFLICT\(id\) DO UPDATE/);
   assert.doesNotMatch(apiRoute, /workspaceId = "default"/);
   assert.match(schema, /workspace_state/);
-  const hostingConfig = JSON.parse(hosting);
-  assert.equal(hostingConfig.d1, "DB");
-  assert.equal(hostingConfig.r2, null);
-  assert.match(hostingConfig.project_id, /^appgprj_/);
-
   assert.doesNotMatch(clientApp, /availableMinutes|completedIds|Decision receipt/);
   assert.doesNotMatch(engine, /sessionLength|willingnessToContinue/);
   assert.match(packageJson, /@supabase\/supabase-js/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
+  await assert.rejects(access(new URL("../.openai/hosting.json", import.meta.url)));
   await assert.rejects(access(new URL("../app/chatgpt-auth.ts", import.meta.url)));
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
 });
@@ -286,7 +280,7 @@ test("defaults to English, keeps Chinese in place, and reviews Agent plans befor
 
   assert.match(layout, /<html lang="en">/);
   assert.match(layout, /LocaleProvider/);
-  assert.match(localeSource, /useState<Locale>\("en"\)/);
+  assert.match(localeSource, /useSyncExternalStore/);
   assert.match(localeSource, /noteflow-locale/);
   assert.match(localeSource, /document\.documentElement\.lang/);
   assert.match(hackathonHeader, /LanguageSwitch/);
@@ -320,7 +314,8 @@ test("defaults to English, keeps Chinese in place, and reviews Agent plans befor
   assert.match(hackathonDemo, /autoFocus/);
   assert.match(guestWorkspace, /Guest learner/);
   assert.match(guestWorkspace, /agentHandoff/);
-  assert.match(guestWorkspace, /setLocale\(parsed\.locale\)/);
+  assert.match(guestWorkspace, /readAgentHandoff/);
+  assert.match(guestWorkspace, /useSyncExternalStore/);
   assert.match(guestWorkspace, /key=\{agentHandoff\?\.id \?\? "default"\}/);
   assert.match(clientApp, /handoff\.retrievalCards/);
   assert.match(clientApp, /projectCardsForHandoff/);

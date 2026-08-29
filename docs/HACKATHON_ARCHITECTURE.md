@@ -33,7 +33,7 @@ flowchart LR
     PubSub --> Worker
     Worker --> Firestore
     Firestore -->|"next session context"| Agent
-    Agent -->|"plan settings + rhythm + one retrieval move"| Web
+    Agent -->|"plan settings + rhythm + today's retrieval cards"| Web
     Demo -->|"attempt outcome + memory feedback"| Proxy
     Proxy -->|"HMAC-signed session continuation"| API
 ```
@@ -48,7 +48,7 @@ flowchart LR
 - The public browser receives only an HMAC-signed continuation token, never the Cloud Run shared secret; it can continue only its high-entropy judge session.
 - Learner context, reviewable plan settings, and rhythm are versioned with the knowledge model. Retrieval feedback re-enters the same ADK session and produces a visible before-and-after rhythm change.
 - The Agent handoff does not start practice. It opens an editable plan review; the learner explicitly starts the session after confirming the generated ranges.
-- Current-session deferral and future-pool skipping are separate scheduler actions. A one-card session cannot move its card later; skipping it ends that session and preserves the card for future scheduling.
+- Current-session deferral and future-pool skipping are separate scheduler actions. Moving a card later sends it to the end of the current small session; skipping returns it to the future learning pool.
 - The interface labels deterministic preview output and never presents it as Gemini output.
 - The public `/demo` route exposes the pre-existing retrieval-first learning workspace without requiring a judge account; its data remains on that browser.
 - Supabase authenticates the pre-existing account route. Its workspace-state endpoint uses Cloudflare D1, which is not mounted on the Vercel judge deployment and is not presented as part of the public contest path.

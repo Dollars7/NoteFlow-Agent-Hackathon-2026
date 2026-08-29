@@ -3,15 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=22.13.0"
+    "node": ">=24.13.0"
   },
   "scripts": {
     "dev": "vinext dev",
     "build": "vinext build",
     "build:vercel": "next build",
     "start": "vinext start",
-    "test": "pnpm run build && tsx --test tests/import-notes.test.ts && node --test --test-isolation=none tests/rendered-html.test.mjs",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern .wrangler",
+    "test": "pnpm run build && tsx --test tests/import-notes.test.ts && node --test --test-isolation=none tests/rendered-html.test.mjs && node --test tests/hackathon-entry.test.mjs",
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern .vinext --ignore-pattern outputs --ignore-pattern work --ignore-pattern .vercel --ignore-pattern .wrangler",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {

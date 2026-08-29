@@ -17,7 +17,7 @@ import {
   type StudyPattern,
   type EnergyWindow,
 } from "../../lib/hackathon-handoff";
-import { useLocale, type Locale } from "../locale";
+import { localeChangeEvent, useLocale, type Locale } from "../locale";
 import styles from "./hackathon.module.css";
 
 type Stage = "intake" | "running" | "clarifying" | "complete" | "error";
@@ -40,8 +40,8 @@ const fieldExamples: Record<Locale, { goal: string; notes: string; preferences: 
 const previewPlans = {
   en: {
     diagnosis: "Your notes contain four topics, but the recurring gap is decision-making under distributed-system tradeoffs.",
-    rhythm: "Five short 20-minute sessions each week, aligned with the learner's evening energy window. Stop after one high-value retrieval when energy is low.",
-    invitation: "Today at 19:00 — one retrieval, with permission to stop after it.",
+    rhythm: "Five short 20-minute sessions each week, aligned with the learner's evening energy window. Stop after the first high-value card when energy is low.",
+    invitation: "Today at 19:00 — a short retrieval session, with permission to stop at any time.",
     nextPrompt:
       "A checkout service must keep accepting writes during a network partition. What consistency guarantee would you relax, and what user-visible failure would you design for?",
     mutation:
@@ -49,8 +49,8 @@ const previewPlans = {
   },
   zh: {
     diagnosis: "你的笔记包含四个主题，但反复出现的缺口是在分布式系统权衡中做出决策。",
-    rhythm: "每周五次、每次 20 分钟，安排在学习者晚间精力窗口；精力不足时只完成一次高价值检索即可停止。",
-    invitation: "今天 19:00——只做一次检索，完成后可以直接停止。",
+    rhythm: "每周五次、每次 20 分钟，安排在学习者晚间精力窗口；精力不足时完成第一张高价值卡片即可停止。",
+    invitation: "今天 19:00——进行一次短检索学习，随时可以停止。",
     nextPrompt:
       "结账服务必须在网络分区期间继续接受写入。你会放宽哪一种一致性保证，又会为哪一种用户可见故障做设计？",
     mutation: "已创建‘可用性与延迟’前置卡，并把分区键设计安排在法定人数推理之后。",
@@ -226,19 +226,24 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
   }, []);
 
   useEffect(() => {
-    if (!agentText || !resultLocale || locale === resultLocale) return;
-    setAgentText("");
-    setContinuationToken("");
-    setRhythmPlan("");
-    setNextInvitation("");
-    setGeneratedPlan(null);
-    setResultLocale(null);
-    setProgressStep(0);
-    setStage("intake");
-    setLocaleNotice(locale === "zh"
-      ? "语言已切换。请重新生成，新的计划将只使用中文。"
-      : "Language changed. Run again and the new plan will use English only.");
-  }, [agentText, locale, resultLocale]);
+    const resetGeneratedResult = (event: Event) => {
+      const nextLocale = (event as CustomEvent<Locale>).detail;
+      if (!agentText || !resultLocale || nextLocale === resultLocale) return;
+      setAgentText("");
+      setContinuationToken("");
+      setRhythmPlan("");
+      setNextInvitation("");
+      setGeneratedPlan(null);
+      setResultLocale(null);
+      setProgressStep(0);
+      setStage("intake");
+      setLocaleNotice(nextLocale === "zh"
+        ? "语言已切换。请重新生成，新的计划将只使用中文。"
+        : "Language changed. Run again and the new plan will use English only.");
+    };
+    window.addEventListener(localeChangeEvent, resetGeneratedResult);
+    return () => window.removeEventListener(localeChangeEvent, resetGeneratedResult);
+  }, [agentText, resultLocale]);
 
   const runLabel = useMemo(() => {
     if (stage === "running") return t("Building the learning path…", "正在构建学习路径…");
