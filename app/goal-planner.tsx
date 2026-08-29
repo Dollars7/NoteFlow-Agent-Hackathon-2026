@@ -26,6 +26,9 @@ export function GoalPlanner({
   const scheduleConfirmed = profile.startMode === "now"
     || (profile.startMode === "scheduled" && Boolean(profile.startDate && profile.preferredTime));
   const themeScopes = skills.map((skill) => ({ id: skill.id, label: skill.name }));
+  const invitationFrequency = profile.invitationsPerWeekMin === profile.invitationsPerWeekMax
+    ? `${profile.invitationsPerWeekMin}× / ${t("week", "周")}`
+    : `${profile.invitationsPerWeekMin}–${profile.invitationsPerWeekMax}× / ${t("week", "周")}`;
 
   const toggleScope = (skillId: string) => {
     update({
@@ -93,7 +96,7 @@ export function GoalPlanner({
           </div>
 
           <div className="range-setting">
-            <div className="range-heading"><div><span>{t("Study reminder frequency", "学习提醒频率")}</span><strong>{profile.invitationsPerWeekMin}–{profile.invitationsPerWeekMax}× / {t("week", "周")}</strong></div></div>
+            <div className="range-heading"><div><span>{t("Study reminder frequency", "学习提醒频率")}</span><strong>{invitationFrequency}</strong></div></div>
             <label className="range-control">
               <span>{t("Fewer reminders", "较少提醒")}</span>
               <input type="range" min="1" max="14" value={profile.invitationsPerWeekMin} onChange={(event) => {

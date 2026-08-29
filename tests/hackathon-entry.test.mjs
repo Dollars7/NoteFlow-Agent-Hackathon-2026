@@ -37,6 +37,9 @@ test("declares the mandatory Google agent stack and honest preview behavior", as
   assert.match(agent, /dailyMinutes/);
   assert.match(agent, /startMode/);
   assert.match(agent, /one hour a day/);
+  assert.match(agent, /use that distance exactly/i);
+  assert.match(agent, /MUST call persist_learning_model before writing the report/);
+  assert.match(agent, /completed report without this tool call is a failed turn/);
   assert.match(agent, /NEXT INVITATION/);
   assert.match(agent, /no persistence was claimed/i);
   assert.match(agent, /no background job was claimed/i);
@@ -94,6 +97,6 @@ test("serves the complete learning workspace without requiring an account", asyn
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /Guest demo · saved in this browser/);
-  assert.match(html, /Start this session/);
+  assert.match(html, /Confirm this plan/);
   assert.match(html, /Notes/);
 });

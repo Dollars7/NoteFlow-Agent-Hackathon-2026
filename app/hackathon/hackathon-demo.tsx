@@ -438,6 +438,11 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
   const progressLabel = visibleProgressStep > 0
     ? traceSteps[visibleProgressStep - 1].title
     : t("Ready to begin", "准备开始");
+  const generatedInvitationFrequency = generatedPlan
+    ? generatedPlan.invitationsPerWeekMin === generatedPlan.invitationsPerWeekMax
+      ? `${generatedPlan.invitationsPerWeekMin}× / ${t("week", "周")}`
+      : `${generatedPlan.invitationsPerWeekMin}–${generatedPlan.invitationsPerWeekMax}× / ${t("week", "周")}`
+    : "";
 
   return (
     <>
@@ -708,7 +713,7 @@ export function HackathonDemo({ connected }: { connected: boolean }) {
                 </div>
                 <div>
                   <span>{t("Study reminders", "学习提醒")}</span>
-                  <strong>{generatedPlan.invitationsPerWeekMin}–{generatedPlan.invitationsPerWeekMax}× / {t("week", "周")}</strong>
+                  <strong>{generatedInvitationFrequency}</strong>
                 </div>
                 <div>
                   <span>{t("Daily time budget", "每日时间预算")}</span>

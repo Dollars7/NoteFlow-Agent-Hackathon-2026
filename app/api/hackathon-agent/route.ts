@@ -20,6 +20,13 @@ type AgentRequest = {
 
 type Continuation = { userId: string; sessionId: string };
 
+type PersistCallState = {
+  found: boolean;
+  retrievalCardCount: number;
+};
+
+const millisecondsPerDay = 86_400_000;
+
 function cleanText(value: unknown, maxLength: number): string {
   return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
 }
@@ -38,6 +45,97 @@ function cleanNullableNumber(value: unknown, min: number, max: number): number |
 
 function cleanChoice<T extends string>(value: unknown, choices: readonly T[], fallback: T): T {
   return typeof value === "string" && choices.includes(value as T) ? value as T : fallback;
+}
+
+function safeTimeZone(value: string): string {
+  const candidate = value || "UTC";
+  try {
+    new Intl.DateTimeFormat("en-CA", { timeZone: candidate }).format(new Date());
+    return candidate;
+  } catch {
+    return "UTC";
+  }
+}
+
+function calendarDateInTimeZone(timeZone: string, now = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${value.year}-${value.month}-${value.day}`;
+}
+
+function temporalContext(targetDate: string, requestedTimeZone: string): string {
+  const timeZone = safeTimeZone(requestedTimeZone);
+  const today = calendarDateInTimeZone(timeZone);
+  if (!targetDate) return `Today is ${today} in the learner's time zone (${timeZone}).`;
+
+  const daysUntil = Math.round((Date.parse(targetDate) - Date.parse(today)) / millisecondsPerDay);
+  const distance = daysUntil > 0
+    ? `${daysUntil} calendar days from today`
+    : daysUntil === 0
+      ? "today"
+      : `${Math.abs(daysUntil)} calendar days ago; the target date has passed`;
+  return `Today is ${today} in the learner's time zone (${timeZone}). The target date is ${targetDate}, ${distance}. Use this server-computed distance exactly; do not recalculate or infer the current date.`;
+}
+
+function parseFunctionArguments(value: unknown): Record<string, unknown> | null {
+  let parsed = value;
+  if (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed) as unknown;
+    } catch {
+      return null;
+    }
+  }
+  return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : null;
+}
+
+function inspectPersistCall(events: unknown): PersistCallState {
+  if (!Array.isArray(events)) return { found: false, retrievalCardCount: 0 };
+  let found = false;
+  let retrievalCardCount = 0;
+  for (const event of events) {
+    if (!event || typeof event !== "object") continue;
+    const parts = (event as { content?: { parts?: unknown[] } }).content?.parts;
+    if (!Array.isArray(parts)) continue;
+    for (const part of parts) {
+      if (!part || typeof part !== "object") continue;
+      const candidate = part as {
+        functionCall?: { name?: unknown; args?: unknown; arguments?: unknown };
+        function_call?: { name?: unknown; args?: unknown; arguments?: unknown };
+      };
+      const call = candidate.functionCall ?? candidate.function_call;
+      if (call?.name !== "persist_learning_model") continue;
+      found = true;
+      const args = parseFunctionArguments(call.args ?? call.arguments);
+      const planSettings = args?.planSettings;
+      const retrievalCards = planSettings && typeof planSettings === "object"
+        ? (planSettings as { retrievalCards?: unknown }).retrievalCards
+        : null;
+      retrievalCardCount = Math.max(retrievalCardCount, Array.isArray(retrievalCards) ? retrievalCards.length : 0);
+    }
+  }
+  return { found, retrievalCardCount };
+}
+
+function responseText(events: unknown): string {
+  if (!Array.isArray(events)) return "";
+  return events.flatMap((event) => {
+    if (!event || typeof event !== "object") return [];
+    const parts = (event as { content?: { parts?: unknown[] } }).content?.parts;
+    if (!Array.isArray(parts)) return [];
+    return parts.flatMap((part) => part && typeof part === "object" && typeof (part as { text?: unknown }).text === "string"
+      ? [(part as { text: string }).text]
+      : []);
+  }).join("\n");
+}
+
+function isClarificationResponse(events: unknown): boolean {
+  return /(?:^|\n)\s*(?:#{1,6}\s*)?(?:CLARIFICATION|澄清问题)\s*:?(?:\n|$)/i.test(responseText(events));
 }
 
 async function continuationSignature(payload: string, secret: string): Promise<string> {
@@ -165,6 +263,8 @@ export async function POST(request: NextRequest) {
     timeZone: cleanText(rawContext.timeZone, 80),
     explicitPlanningSignals,
   };
+  const effectiveTargetDate = explicitPlanningSignals.targetDate || learnerContext.targetDate;
+  const currentDateContext = temporalContext(effectiveTargetDate, learnerContext.timeZone);
 
   let userId = `judge-${crypto.randomUUID()}`;
   let sessionId = crypto.randomUUID();
@@ -215,6 +315,7 @@ export async function POST(request: NextRequest) {
       };
       prompt = [
         `Learner ID: ${userId}`,
+        currentDateContext,
         responseLanguage,
         "This is real retrieval feedback from the NoteFlow practice flow:",
         JSON.stringify(practice, null, 2),
@@ -226,6 +327,7 @@ export async function POST(request: NextRequest) {
       }
       prompt = [
         `Learner ID: ${userId}`,
+        currentDateContext,
         responseLanguage,
         `Learner clarification: ${clarification}`,
         "Updated merged learner context:",
@@ -235,6 +337,7 @@ export async function POST(request: NextRequest) {
     } else {
       prompt = [
         `Learner ID: ${userId}`,
+        currentDateContext,
         responseLanguage,
         `Learning goal: ${goal}`,
         "Learner-controlled context:",
@@ -243,24 +346,47 @@ export async function POST(request: NextRequest) {
         notes,
         "Treat the goal, notes, learning preferences, constraints, and explicitPlanningSignals as one merged instruction. Explicit numeric, date, and time statements always override defaults. Preserve the distinction between daily total time and per-session length; for example, “one hour a day” means dailyMinutes=60 and does not by itself require a 60-minute session. If two explicit statements conflict and the choice changes the plan, ask one clarification.",
         "Infer an adjustable plan before choosing retrievals. Create planSettings with a continuous steady-to-sprint pace bias, session-duration range, invitation-frequency range, daily time budget, start mode/date/time, target date, time zone, optional role baseline, evidence-grounded themes, and 3–8 structured retrievalCards. Every card.theme must exactly match one plan theme; its prompt must require an attempt rather than name a topic. For language goals default to speak mode, include languageCode, and place a target-language example plus its meaning in noteMarkdown. These ranges guide invitations, never limit voluntary learning. Never create or imply a scheduled reminder while startMode is undecided. If essential decision-changing context is still absent, return only one CLARIFICATION question. Otherwise persist the plan, rhythm, and knowledge model and set one next invitation.",
-        "Use the requested response language for every user-facing sentence while keeping tool arguments accurate. Keep the report concise; the structured tool call is the detailed source of truth.",
+        "You MUST call persist_learning_model with 3–8 complete retrievalCards before writing the report; a report without this tool call is a failed turn. Use the requested response language for every user-facing sentence while keeping tool arguments accurate. Keep the report concise; the structured tool call is the detailed source of truth.",
       ].join("\n\n");
     }
 
-    const runResponse = await fetch(`${agentUrl}/run`, {
+    const runAgent = (messageText: string) => fetch(`${agentUrl}/run`, {
       method: "POST",
       headers: { authorization, "content-type": "application/json" },
       body: JSON.stringify({
         appName,
         userId,
         sessionId,
-        newMessage: { role: "user", parts: [{ text: prompt }] },
+        newMessage: { role: "user", parts: [{ text: messageText }] },
       }),
     });
+    const runResponse = await runAgent(prompt);
     if (!runResponse.ok) throw new Error(`Agent run failed (${runResponse.status}).`);
 
+    let events = await runResponse.json() as unknown;
+    const firstPersistCall = inspectPersistCall(events);
+    if (!isClarificationResponse(events) && (!firstPersistCall.found || firstPersistCall.retrievalCardCount < 3)) {
+      const correctionPrompt = [
+        currentDateContext,
+        responseLanguage,
+        "Your previous turn was incomplete and must be corrected. You MUST call persist_learning_model before writing any report; a report without that tool call is a failed turn.",
+        "The tool arguments MUST include planSettings.retrievalCards with 3–8 complete cards. Every card.theme must exactly match one planSettings.themes value. Do not put card prompts only in report prose.",
+        "After the successful tool call, return the six concise report sections.",
+      ].join("\n\n");
+      const correctionResponse = await runAgent(correctionPrompt);
+      if (!correctionResponse.ok) throw new Error(`Agent correction failed (${correctionResponse.status}).`);
+      events = await correctionResponse.json() as unknown;
+      const correctedPersistCall = inspectPersistCall(events);
+      if (!correctedPersistCall.found || correctedPersistCall.retrievalCardCount < 3) {
+        throw new Error(message(
+          "The Agent did not return the required structured retrieval cards.",
+          "Agent 没有返回必需的结构化检索卡片。",
+        ));
+      }
+    }
+
     return NextResponse.json({
-      events: await runResponse.json(),
+      events,
       runId: sessionId,
       continuationToken: await createContinuationToken(userId, sessionId, sharedSecret),
     });
