@@ -1,16 +1,16 @@
-# NoteFlow Agent — Build a learning rhythm that adapts to you
+# NoteFlow Agent — The plan should move when the learner does
 
-> **Plan the rhythm, not the backlog. Let NoteFlow choose the next retrieval.**
+> Most learning tools ask, "What is due?"
+> NoteFlow asks, "What can you genuinely learn next—and what should change after you try?"
 
-This is the standalone submission repository for the **2026 All Things Agentic Hackathon**, entered in the **Collaborative Partner** category.
+**All Things Agentic Hackathon 2026 · Collaborative Partner track**
 
-Repository: [`Dollars7/NoteFlow-Agent-Hackathon-2026`](https://github.com/Dollars7/NoteFlow-Agent-Hackathon-2026) · submission branch: `main`
+- Hosted demo: https://note-flow-agent-hackathon-2026.vercel.app (no account needed)
+- Demo video: <YOUTUBE_URL>
+- Architecture diagram: [docs/architecture.png](docs/architecture.png)
+- Pre-existing work disclosure: [HACKATHON_DISCLOSURE.md](HACKATHON_DISCLOSURE.md)
 
-Hosted demo: **[note-flow-agent-hackathon-2026.vercel.app](https://note-flow-agent-hackathon-2026.vercel.app)**
-
-NoteFlow Agent is intended to learn **when and how a person can study sustainably**, create a personal learning rhythm, invite the learner back at the right moment, and then use the existing NoteFlow retrieval flow to decide what should be practiced.
-
-It is not meant to be a pasted-notes report generator. The Agent should adapt the plan from real learning behavior.
+NoteFlow Agent is a learning partner that turns a goal and messy notes into a study rhythm the learner can keep, generates retrieval cards from that evidence, and revises the rhythm from real retrieval feedback. It never shows a backlog, an overdue count, or a completion rate.
 
 ## Intended product loop
 
@@ -59,46 +59,48 @@ The original Flow Engine remains responsible for **what to retrieve now**. The A
 
 ### Working now
 
-- default-English public experience with an in-place Chinese switch;
-- no-account judging and guest-practice path;
-- natural-language goal, unstructured evidence, self-described learning preferences, and real-constraint intake without requiring fixed quotas first;
-- Agent-generated, learner-editable plan settings: inferred goal, optional role baseline, themes, continuous steady-to-sprint priority, session-duration range, study-reminder frequency, study pattern, energy window, and reminder preference;
-- an explicit plan-review boundary before the learner starts the Agent-selected retrieval;
-- Agent-generated sustainable rhythm, plan settings, and next study reminder persisted with the knowledge model in Firestore;
-- a signed continuation session for a real decision-changing clarification when one is necessary;
-- Gemini 3.5 Flash reasoning through Google ADK;
-- Firestore current-model mutation plus immutable versions;
-- Pub/Sub asynchronous analysis delivered to a private Cloud Run worker;
-- direct handoff from an Agent-selected retrieval prompt into the existing NoteFlow practice flow;
-- two explicit card-defer actions: move to the end of the current session, or skip for now and return to the future learning pool;
-- actual retrieval outcome, hint depth, reaction time, and memory change returned to the same Google Agent session;
-- visible before-and-after rhythm changes plus the revised next study reminder;
-- opt-in downloadable calendar reminder and browser reminder activation;
-- transparent preview labeling when the live Agent connection is absent.
+**Intake and planning**
+- English/Chinese interface; generated content is locked to the language of the run
+- Natural-language goal, unstructured notes, optional target date, and minutes per day — no fixed quotas up front
+- Server-computed "today" and days-to-target injected into every Agent turn, so the model never infers the current date
+- One clarifying question, asked only when the answer would change the plan (signed continuation session)
 
-### Required after P0
+**Agent (Gemini 3.5 Flash · Google ADK · Cloud Run)**
+- Single `LlmAgent` with two scoped tools: `persist_learning_model` and `queue_deep_analysis`
+- Structured `planSettings`: pace bias, session range, reminder frequency, study pattern, energy window, themes, and 1–8 structured `retrievalCards` (theme, mode, prompt, hints, expected answer, note, language code)
+- Persistence is enforced: a planning turn without a tool call is retried with tool choice forced (`beforeModelCallback`)
+- Firestore: mutable `current` document plus an immutable version per revision
+- Pub/Sub deep-analysis jobs (digest only) delivered to a private Cloud Run worker
 
-- durable server push or email reminders that still arrive after every NoteFlow tab is closed;
-- account-linked rhythm continuity across devices (the no-account judge handoff remains local to one browser);
-- longitudinal adaptation across several completed sessions rather than one immediate feedback turn;
-- completed background analysis reflected in the learner's next session.
+**Learning workspace (`/demo`)**
+- Goal-scoped state: each Agent plan gets its own skills, cards, and browser storage; no seed data leaks between goals
+- Cards are generated per theme from the Agent's structured output; each card carries an `origin` (`agent` / `import` / `manual` / `prerequisite` / `gap`)
+- Retrieval session with two deferral actions: move to end of session, or return to the pool
+- Attempt outcome, hint depth, reaction time, and memory change sent back to the same Agent session; before/after rhythm shown to the learner
+- Idle "plan set" state after a session — no re-planning required
+- Note library with CSV/Anki import, visible alongside Agent-generated cards
+- Opt-in calendar (`.ics`) export and browser reminder, only after a start time is confirmed
+
+### What's next
+
+- Per-card forgetting timelines so review and new cards compete inside a fixed daily budget that never grows
+- A single home state with today's card budget as the only visible target; setup reduced to three questions
+- Voice playback of reference phrases on `speak` cards via browser speech synthesis (recording already works)
+- Coverage estimate at setup ("at 5 cards a day you'll cover about 60% by your date"), shown once
+- Server-side reminders and cross-device continuity for signed-in learners
+- Longitudinal adaptation across many sessions, and background-analysis results surfaced in the next session
 
 The current build completes the P0 loop from learner context to rhythm, reminder, retrieval, feedback, and a visibly revised rhythm. Calendar reminders survive the browser through the learner's calendar; browser notifications are a lightweight opt-in companion, not a claim of production push delivery.
 
-## Current working judge path
+## Judge path (no account)
 
-No account is required.
-
-1. Open the [hosted demo](https://note-flow-agent-hackathon-2026.vercel.app) (the root page and `/hackathon` show the same judge flow).
-2. Keep English or switch the same interface to Chinese.
-3. Describe the learning goal and at least one note, question, or stuck point. Learning preferences and constraints are optional under **More settings**.
-4. Run NoteFlow Agent and review the concise plan summary. The full Agent report remains collapsed under **Agent details and audit trail**.
-5. Optionally add the study reminder to a calendar or enable the browser reminder.
-6. Select **Review plan**. NoteFlow opens `/demo` without starting a learning session.
-7. Review the goal, priority slider, and Session-length sliders. Reminder frequency, study pattern, timing, themes, and optional role baseline remain under **More settings**.
-8. Select **Start this session** to begin the Agent-selected retrieval card.
-9. During practice, **Later this session · move to queue end** rotates a card only when another card exists; **Skip for now · return to learning pool** removes it from this session. With one card, Skip ends the session and returns the card to the future pool.
-10. Complete the retrieval feedback. The same Google Agent session receives the evidence and shows the rhythm before and after its revision.
+1. Open the hosted demo. English is default; 中文 is one click.
+2. Enter a goal, at least one note or stuck point, an optional target date, and minutes per day. Select **Build my learning path**.
+3. Watch the four-step trace. If the Agent asks one clarifying question, answer it below the trace.
+4. Review the generated summary, then select **Review plan**. On the plan review page, inspect the pace, session range, themes, and target date, then select **Confirm this plan** — nothing starts yet.
+5. On the plan-set home state, select **Start learning**. Answer each card before opening the note. Try **Skip for now · return to learning pool** on one card and **I got stuck** on another.
+6. Select **End this session**. The Agent's revised rhythm and next invitation appear on the completion screen; a second immutable version is written to Firestore.
+7. Select **Back to the plan** to return to the idle state. Open **Notes** to see Agent-generated and imported cards side by side.
 
 `/account` belongs to the pre-existing product foundation and is not part of the public Vercel judging path. Supabase is not required for judging or guest practice.
 
@@ -123,6 +125,13 @@ The public flow is therefore intentionally hybrid, not a single disconnected dat
 | Cloud Run | Interactive ADK API service and separate private worker |
 | Firestore | Current learning model, immutable model versions, and completed analyses |
 | Pub/Sub | Safe-digest asynchronous analysis jobs delivered with OIDC |
+
+## Reliability notes
+
+- Structured output: every card requires `theme`, `mode`, `prompt`, `hintKeywords`, `expectedAnswer`, and `noteMarkdown`; `languageCode` is optional. The plan review reads the structured first card directly and never substitutes report prose.
+- Tool schema is kept Vertex-compatible, including avoiding unsupported empty-literal enum constructs.
+- If a planning turn returns a report without `persist_learning_model` or without at least one card, the proxy re-runs the turn with tool choice forced. A corrected response that still lacks a card fails clearly instead of creating an empty plan.
+- Rate limit: 12 Agent runs per minute per IP on the proxy.
 
 The browser never receives Google Cloud credentials, the Cloud Run URL, or the shared service token. A same-origin server route owns that boundary.
 
@@ -241,3 +250,11 @@ The earlier NoteFlow product is disclosed as pre-existing work. The repository r
 The stable pre-contest product remains in the original [`Dollars7/NoteFlow`](https://github.com/Dollars7/NoteFlow/tree/main) repository.
 
 > **Plan the rhythm. Enter the Flow. Remember.**
+
+## Submission materials
+
+- Devpost: <DEVPOST_URL>
+- Demo video (≤4 min, English subtitles): <YOUTUBE_URL>
+- Build story: <LINKEDIN_ARTICLE_URL>
+- Architecture: `docs/architecture.png`
+- Pre-existing work: `HACKATHON_DISCLOSURE.md` · Dev log: `HACKATHON_DEVLOG.md`
