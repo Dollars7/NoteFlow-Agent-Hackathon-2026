@@ -367,6 +367,7 @@ export async function POST(request: NextRequest) {
     const firstPersistCall = inspectPersistCall(events);
     if (!isClarificationResponse(events) && (!firstPersistCall.found || firstPersistCall.retrievalCardCount < 3)) {
       const correctionPrompt = [
+        "[FORCE_PERSIST_TOOL]",
         currentDateContext,
         responseLanguage,
         "Your previous turn was incomplete and must be corrected. You MUST call persist_learning_model before writing any report; a report without that tool call is a failed turn.",

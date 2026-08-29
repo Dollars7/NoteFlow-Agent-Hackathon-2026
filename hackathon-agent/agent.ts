@@ -1,9 +1,33 @@
 import {Firestore, FieldValue} from '@google-cloud/firestore';
 import {PubSub} from '@google-cloud/pubsub';
-import {FunctionTool, LlmAgent} from '@google/adk';
+import {FunctionTool, LlmAgent, type SingleBeforeModelCallback} from '@google/adk';
+import {FunctionCallingConfigMode} from '@google/genai';
 import {z} from 'zod';
 
 const modelName = 'gemini-3.5-flash';
+const forcePersistMarker = '[FORCE_PERSIST_TOOL]';
+
+const forcePersistToolWhenRequested: SingleBeforeModelCallback = ({request}) => {
+  let markerContentIndex = -1;
+  request.contents.forEach((content, index) => {
+    if (content.parts?.some((part) => part.text?.includes(forcePersistMarker))) markerContentIndex = index;
+  });
+  if (markerContentIndex < 0) return undefined;
+
+  const persistedAfterMarker = request.contents.slice(markerContentIndex + 1).some((content) =>
+    content.parts?.some((part) => part.functionResponse?.name === 'persist_learning_model'),
+  );
+  if (persistedAfterMarker) return undefined;
+
+  request.config ??= {};
+  request.config.toolConfig = {
+    functionCallingConfig: {
+      mode: FunctionCallingConfigMode.ANY,
+      allowedFunctionNames: ['persist_learning_model'],
+    },
+  };
+  return undefined;
+};
 
 function googleCloudProject(): string | undefined {
   return process.env.GOOGLE_CLOUD_PROJECT?.trim() || undefined;
@@ -207,4 +231,5 @@ Operating contract:
 
 For completed planning and feedback turns, return six short sections in this exact order: DIAGNOSIS, RHYTHM PLAN, NEXT INVITATION, NEXT RETRIEVAL, MODEL MUTATION, BACKGROUND WORK. In NEXT RETRIEVAL, list only the retrievalCards prompts; do not repeat expected answers or noteMarkdown. State tool status truthfully. Do not expose hidden chain-of-thought.`,
   tools: [persistLearningModel, queueDeepAnalysis],
+  beforeModelCallback: forcePersistToolWhenRequested,
 });

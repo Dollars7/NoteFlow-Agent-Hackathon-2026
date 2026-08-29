@@ -40,6 +40,9 @@ test("declares the mandatory Google agent stack and honest preview behavior", as
   assert.match(agent, /use that distance exactly/i);
   assert.match(agent, /MUST call persist_learning_model before writing the report/);
   assert.match(agent, /completed report without this tool call is a failed turn/);
+  assert.match(agent, /forcePersistToolWhenRequested/);
+  assert.match(agent, /allowedFunctionNames: \['persist_learning_model'\]/);
+  assert.match(agent, /beforeModelCallback: forcePersistToolWhenRequested/);
   assert.match(agent, /NEXT INVITATION/);
   assert.match(agent, /no persistence was claimed/i);
   assert.match(agent, /no background job was claimed/i);

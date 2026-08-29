@@ -370,6 +370,7 @@ test("defaults to English, keeps Chinese in place, and reviews Agent plans befor
   assert.match(proxy, /Use this server-computed distance exactly/);
   assert.match(proxy, /inspectPersistCall/);
   assert.match(proxy, /Agent correction failed/);
+  assert.match(proxy, /\[FORCE_PERSIST_TOOL\]/);
   assert.match(proxy, /planSettings\.retrievalCards with 3–8 complete cards/);
   assert.match(goalPlanner, /invitationsPerWeekMin === profile\.invitationsPerWeekMax/);
   assert.match(hackathonDemo, /generatedInvitationFrequency/);
