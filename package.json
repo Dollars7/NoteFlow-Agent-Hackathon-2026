@@ -10,16 +10,19 @@
     "build": "vinext build",
     "build:vercel": "next build",
     "start": "vinext start",
-    "test": "pnpm run build && node --test --test-isolation=none tests/rendered-html.test.mjs",
+    "test": "pnpm run build && tsx --test tests/import-notes.test.ts && node --test --test-isolation=none tests/rendered-html.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern .wrangler",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.110.8",
     "drizzle-orm": "0.45.2",
+    "fflate": "^0.8.3",
+    "fzstd": "^0.1.1",
     "next": "16.2.6",
     "react": "19.2.6",
-    "react-dom": "19.2.6"
+    "react-dom": "19.2.6",
+    "sql.js": "^1.14.2"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",
@@ -27,6 +30,7 @@
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
+    "@types/sql.js": "^1.4.11",
     "@vitejs/plugin-react": "6.0.2",
     "@vitejs/plugin-rsc": "0.5.26",
     "drizzle-kit": "0.31.10",
@@ -34,6 +38,7 @@
     "eslint-config-next": "16.2.6",
     "react-server-dom-webpack": "19.2.6",
     "tailwindcss": "4.2.1",
+    "tsx": "^4.23.12",
     "typescript": "5.9.3",
     "vinext": "0.0.50",
     "vite": "8.0.13",

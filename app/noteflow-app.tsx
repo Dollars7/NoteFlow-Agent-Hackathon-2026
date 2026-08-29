@@ -1037,15 +1037,23 @@ This is not a debt. It has returned to the scheduling pool as an independent car
     });
   };
 
-  const importCards = (cardsToImport: NoteCard[]) => {
+  const importCards = (cardsToImport: NoteCard[], importedSkills: SkillState[] = []) => {
     if (cardsToImport.length === 0) return;
 
+    const availableSkillIds = new Set([...skills, ...importedSkills].map((skill) => skill.id));
+    if (importedSkills.length > 0) {
+      setSkills((current) => {
+        const merged = new Map(current.map((skill) => [skill.id, skill]));
+        importedSkills.forEach((skill) => merged.set(skill.id, skill));
+        return [...merged.values()];
+      });
+    }
     setGeneratedCards((cards) => {
       const merged = new Map(cards.map((card) => [card.id, card]));
       cardsToImport.forEach((card) => merged.set(card.id, {
         ...card,
         origin: "import",
-        skillId: skills.some((skill) => skill.id === card.skillId) ? card.skillId : (skills[0]?.id ?? card.skillId),
+        skillId: availableSkillIds.has(card.skillId) ? card.skillId : (skills[0]?.id ?? card.skillId),
         tags: [...new Set([...(card.tags ?? []), ...(activeProjectTag ? [activeProjectTag] : [])])],
       }));
       return [...merged.values()];

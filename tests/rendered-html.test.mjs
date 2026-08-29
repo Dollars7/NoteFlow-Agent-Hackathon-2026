@@ -180,6 +180,7 @@ test("implements dual auth, unified notes, scoped scheduling, and private persis
     engine,
     noteLibrary,
     importer,
+    packageImporter,
     apiRoute,
     schema,
     hosting,
@@ -193,6 +194,7 @@ test("implements dual auth, unified notes, scoped scheduling, and private persis
     readFile(new URL("../lib/flow-engine.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/note-library.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/import-notes.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/import-anki-package.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/state/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
     readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
@@ -243,6 +245,12 @@ test("implements dual auth, unified notes, scoped scheduling, and private persis
   assert.match(noteLibrary, /导入 CSV 或 Anki 文件/);
   assert.match(importer, /front.*back.*tags/i);
   assert.match(importer, /parseRows/);
+  assert.match(importer, /stripAnkiDirectives/);
+  assert.match(importer, /columnIndex\("deck"\)/);
+  assert.match(noteLibrary, /\.apkg/);
+  assert.match(noteLibrary, /如何从 Anki 导出/);
+  assert.match(packageImporter, /collection\.anki21/);
+  assert.match(packageImporter, /SELECT n\.id, n\.flds, n\.tags/);
 
   assert.match(apiRoute, /`supabase:\$\{user\.id\}`/);
   assert.match(apiRoute, /authenticateRequest\(request\)/);

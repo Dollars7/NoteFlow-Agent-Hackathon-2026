@@ -3,7 +3,22 @@ import type { NoteCard, RetrievalMode, SkillState } from "./flow-engine";
 export type NoteImportResult = {
   cards: NoteCard[];
   warnings: string[];
-  format: "noteflow-csv" | "anki";
+  format: "noteflow-csv" | "anki-text" | "anki-package";
+  newSkills: SkillState[];
+};
+
+const ankiDelimiters: Record<string, string> = {
+  tab: "\t",
+  "\\t": "\t",
+  comma: ",",
+  ",": ",",
+  semicolon: ";",
+  ";": ";",
+  pipe: "|",
+  "|": "|",
+  colon: ":",
+  ":": ":",
+  space: " ",
 };
 
 const normalizedHeader = (value: string) =>
@@ -61,8 +76,31 @@ function parseRows(text: string, delimiter: string) {
   return rows;
 }
 
+function stripAnkiDirectives(source: string) {
+  const lines = source.split(/\r?\n/);
+  const directives: Record<string, string> = {};
+  let index = 0;
+
+  while (index < lines.length && lines[index].trimStart().startsWith("#")) {
+    const match = lines[index].trim().match(/^#([a-z ]+?):(.*)$/i);
+    if (match) directives[match[1].trim().toLowerCase()] = match[2].trim();
+    index += 1;
+  }
+
+  return {
+    body: lines.slice(index).join("\n"),
+    directives,
+    directiveLineCount: index,
+    isAnki: index > 0 && Object.keys(directives).length > 0,
+  };
+}
+
 function findColumn(headers: string[], aliases: readonly string[]) {
   return headers.findIndex((header) => aliases.includes(normalizedHeader(header)));
+}
+
+function matchesAlias(value: string, aliases: readonly string[]) {
+  return aliases.some((alias) => alias === value);
 }
 
 function cleanAnkiHtml(value: string) {
@@ -100,6 +138,33 @@ function resolveSkill(
   return match?.id ?? fallbackSkillId;
 }
 
+function importedSkillId(name: string, skills: SkillState[]) {
+  const base = name
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "-")
+    .replace(/^-+|-+$/g, "") || "imported-domain";
+  let candidate = base;
+  let suffix = 2;
+  while (skills.some((skill) => skill.id === candidate)) {
+    candidate = `${base}-${suffix}`;
+    suffix += 1;
+  }
+  return candidate;
+}
+
+function createImportedSkill(name: string, skills: SkillState[]): SkillState {
+  return {
+    id: importedSkillId(name, skills),
+    name,
+    mastery: 0.3,
+    retention: 0.3,
+    expression: 0.3,
+    confidence: 0.3,
+  };
+}
+
 function allowedMode(value: string): RetrievalMode {
   return ["recall", "solve", "speak", "design"].includes(value.toLowerCase())
     ? (value.toLowerCase() as RetrievalMode)
@@ -114,20 +179,75 @@ export function parseNoteImport(
   locale: "en" | "zh" = "en",
 ): NoteImportResult {
   const t = (english: string, chinese: string) => locale === "zh" ? chinese : english;
-  const text = source.replace(/^\uFEFF/, "");
+  const {
+    body: text,
+    directives,
+    directiveLineCount,
+    isAnki,
+  } = stripAnkiDirectives(source.replace(/^\uFEFF/, ""));
   const firstLine = text.split(/\r?\n/, 1)[0] ?? "";
-  const delimiter = firstLine.includes("\t") ? "\t" : ",";
+  const delimiter =
+    ankiDelimiters[directives.separator?.toLowerCase() ?? ""] ??
+    (firstLine.includes("\t") ? "\t" : ",");
   const rows = parseRows(text, delimiter);
-  if (rows.length === 0) return { cards: [], warnings: [t("The file has no importable content.", "文件中没有可导入的内容。")], format: "noteflow-csv" };
+  if (rows.length === 0) return {
+    cards: [],
+    warnings: [t("The file has no importable content.", "文件中没有可导入的内容。")],
+    format: isAnki ? "anki-text" : "noteflow-csv",
+    newSkills: [],
+  };
 
-  const firstHeaders = rows[0].map(normalizedHeader);
-  const knownHeaders: string[] = Object.values(headerAliases).flat();
-  const hasHeader = firstHeaders.some((header) => knownHeaders.includes(header));
-  const headers = hasHeader ? rows[0] : ["front", "back", "tags"];
-  const dataRows = hasHeader ? rows.slice(1) : rows;
+  let hasHeader = false;
+  let headers: string[];
+  let dataRows: string[][];
+
+  if (isAnki) {
+    const width = Math.max(...rows.map((row) => row.length));
+    headers = Array.from({ length: width }, () => "");
+    const columnDirective = directives.columns
+      ? parseRows(directives.columns, delimiter)[0] ?? []
+      : [];
+    columnDirective.slice(0, width).forEach((header, index) => {
+      const normalized = normalizedHeader(header);
+      if (matchesAlias(normalized, headerAliases.prompt)) headers[index] = "front";
+      else if (matchesAlias(normalized, headerAliases.noteMarkdown)) headers[index] = "back";
+      else if (matchesAlias(normalized, headerAliases.skill)) headers[index] = "deck";
+      else if (matchesAlias(normalized, headerAliases.tags)) headers[index] = "tags";
+      else if (["guid", "notetype"].includes(normalized)) headers[index] = normalized;
+    });
+    const columnIndex = (key: string) => {
+      const value = Number(directives[`${key} column`]);
+      return Number.isFinite(value) && value >= 1 && value <= width ? value - 1 : -1;
+    };
+    const specialColumns = {
+      guid: columnIndex("guid"),
+      notetype: columnIndex("notetype"),
+      deck: columnIndex("deck"),
+      tags: columnIndex("tags"),
+    };
+    Object.entries(specialColumns).forEach(([name, index]) => {
+      if (index >= 0) headers[index] = name;
+    });
+    const fieldSlots = headers
+      .map((header, index) => (header ? -1 : index))
+      .filter((index) => index >= 0);
+    if (!headers.some((header) => normalizedHeader(header) === "front") && fieldSlots[0] !== undefined) {
+      headers[fieldSlots[0]] = "front";
+    }
+    if (!headers.some((header) => normalizedHeader(header) === "back") && fieldSlots[1] !== undefined) {
+      headers[fieldSlots[1]] = "back";
+    }
+    dataRows = rows;
+  } else {
+    const firstHeaders = rows[0].map(normalizedHeader);
+    const knownHeaders: string[] = Object.values(headerAliases).flat();
+    hasHeader = firstHeaders.some((header) => knownHeaders.includes(header));
+    headers = hasHeader ? rows[0] : ["front", "back", "tags"];
+    dataRows = hasHeader ? rows.slice(1) : rows;
+  }
   const format =
-    headers.some((header) => ["front", "back", "deck"].includes(normalizedHeader(header)))
-      ? "anki"
+    isAnki || headers.some((header) => ["front", "back", "deck"].includes(normalizedHeader(header)))
+      ? "anki-text"
       : "noteflow-csv";
 
   const indexes = {
@@ -143,36 +263,41 @@ export function parseNoteImport(
 
   const warnings: string[] = [];
   const cards: NoteCard[] = [];
+  const newSkills: SkillState[] = [];
+  const globalTags = isAnki ? splitList(directives.tags ?? "") : [];
+  const globalDeck = isAnki ? directives.deck ?? "" : "";
 
   dataRows.forEach((row, rowIndex) => {
     const get = (index: number) => (index >= 0 ? row[index]?.trim() ?? "" : "");
     const rawPrompt = get(indexes.prompt);
     const rawBack = get(indexes.noteMarkdown);
-    const prompt = format === "anki" ? cleanAnkiHtml(rawPrompt) : rawPrompt;
-    const noteMarkdown = format === "anki" ? cleanAnkiHtml(rawBack) : rawBack;
+    const prompt = format === "anki-text" ? cleanAnkiHtml(rawPrompt) : rawPrompt;
+    const noteMarkdown = format === "anki-text" ? cleanAnkiHtml(rawBack) : rawBack;
 
     if (!prompt && !noteMarkdown) return;
     if (!prompt) {
       warnings.push(t(
-        `Row ${rowIndex + (hasHeader ? 2 : 1)} has no Front/prompt and was skipped.`,
-        `第 ${rowIndex + (hasHeader ? 2 : 1)} 行缺少 Front/prompt，已跳过。`,
+        `Row ${rowIndex + directiveLineCount + (hasHeader ? 2 : 1)} has no Front/prompt and was skipped.`,
+        `第 ${rowIndex + directiveLineCount + (hasHeader ? 2 : 1)} 行缺少 Front/prompt，已跳过。`,
       ));
       return;
     }
 
-    const tags = splitList(get(indexes.tags));
-    const rawSkill = get(indexes.skill);
-    const skillId = resolveSkill(rawSkill, tags, skills, fallbackSkillId);
+    const tags = [...new Set([...globalTags, ...splitList(get(indexes.tags))])];
+    const rawSkill = get(indexes.skill) || globalDeck;
+    const availableSkills = [...skills, ...newSkills];
+    let skillId = resolveSkill(rawSkill, tags, availableSkills, fallbackSkillId);
     if (rawSkill && skillId === fallbackSkillId) {
-      const recognized = skills.some(
+      const recognized = availableSkills.some(
         (skill) =>
           normalizedHeader(rawSkill) === normalizedHeader(skill.id) ||
           normalizedHeader(rawSkill) === normalizedHeader(skill.name),
       );
-      if (!recognized) warnings.push(t(
-        `“${rawSkill}” did not match a knowledge domain and was assigned to the default domain.`,
-        `“${rawSkill}”未匹配知识领域，已归入默认领域。`,
-      ));
+      if (!recognized) {
+        const importedSkill = createImportedSkill(rawSkill, availableSkills);
+        newSkills.push(importedSkill);
+        skillId = importedSkill.id;
+      }
     }
 
     const title =
@@ -207,7 +332,7 @@ export function parseNoteImport(
     });
   });
 
-  return { cards, warnings: [...new Set(warnings)], format };
+  return { cards, warnings: [...new Set(warnings)], format, newSkills };
 }
 
 export const noteFlowCsvTemplate = `title,prompt,noteMarkdown,skill,tags,mode,hintKeywords,scaffold

@@ -6,6 +6,7 @@ import {
   parseNoteImport,
   type NoteImportResult,
 } from "../lib/import-notes";
+import { parseAnkiPackage } from "../lib/import-anki-package";
 import type { NoteCard, SkillState } from "../lib/flow-engine";
 import { useLocale } from "./locale";
 
@@ -31,7 +32,7 @@ type NoteLibraryProps = {
   ) => void;
   onBulkAddTag: (ids: string[], tag: string) => void;
   onDelete: (ids: string[]) => void;
-  onImport: (cards: NoteCard[]) => void;
+  onImport: (cards: NoteCard[], newSkills: SkillState[]) => void;
   onLearn: () => void;
 };
 
@@ -90,6 +91,8 @@ export function NoteLibrary({
   const [importOpen, setImportOpen] = useState(false);
   const [importPreview, setImportPreview] = useState<NoteImportResult | null>(null);
   const [importFallbackSkill, setImportFallbackSkill] = useState(skills[0]?.id ?? "intervals");
+  const [importFileName, setImportFileName] = useState("");
+  const [importBusy, setImportBusy] = useState(false);
   const [showAllProjects, setShowAllProjects] = useState(false);
 
   const projectCards = useMemo(() => activeProjectTag
@@ -160,13 +163,23 @@ export function NoteLibrary({
 
   const handleImportFile = async (file: File | undefined) => {
     if (!file) return;
-    const text = await file.text();
-    setImportPreview(parseNoteImport(text, skills, importFallbackSkill, `import-${Date.now()}`, locale));
+    setImportBusy(true);
+    setImportFileName(file.name);
+    setImportPreview(null);
+    const idPrefix = `import-${Date.now()}`;
+    try {
+      const result = /\.(apkg|colpkg)$/i.test(file.name)
+        ? await parseAnkiPackage(file, skills, importFallbackSkill, idPrefix, locale)
+        : parseNoteImport(await file.text(), skills, importFallbackSkill, idPrefix, locale);
+      setImportPreview(result);
+    } finally {
+      setImportBusy(false);
+    }
   };
 
   const commitImport = () => {
     if (!importPreview?.cards.length) return;
-    onImport(importPreview.cards);
+    onImport(importPreview.cards, importPreview.newSkills);
     onSelect(importPreview.cards[0].id);
     setImportPreview(null);
     setImportOpen(false);
@@ -388,18 +401,32 @@ export function NoteLibrary({
 
             <div className="import-format-grid">
               <div>
-                <strong>NoteFlow CSV</strong>
-                <p>{t("Supports title, prompt, noteMarkdown, skill, tags, mode, hintKeywords, and scaffold.", "支持 title、prompt、noteMarkdown、skill、tags、mode、hintKeywords、scaffold。")}</p>
-                <button type="button" onClick={downloadTemplate}>{t("Download CSV template", "下载 CSV 模板")}</button>
+                <strong>{t("Anki deck package", "Anki 牌组包")}</strong>
+                <p>{t("Import downloaded .apkg decks or .colpkg collections directly. Text fields, deck names, and tags are kept; scheduling and media are ignored.", "直接导入网上下载的 .apkg 牌组或 .colpkg 集合。保留文字字段、牌组名和标签；不导入复习进度与媒体。")}</p>
               </div>
               <div>
-                <strong>{t("Anki format", "Anki 格式")}</strong>
-                <p>{t("Supports Front / Back / Tags headers and headerless Front ⇥ Back ⇥ Tags TSV.", "支持 Front / Back / Tags 表头，也支持无表头的 Front ⇥ Back ⇥ Tags TSV。")}</p>
+                <strong>{t("Anki plain-text export", "Anki 纯文本导出")}</strong>
+                <p>{t("Import Anki's Notes in Plain Text .txt directly. #separator, #deck, #tags, GUID, and note-type column directives are detected automatically.", "直接导入 Anki 的“纯文本格式的笔记” .txt。自动识别 #separator、#deck、#tags、GUID 与笔记类型列。")}</p>
+              </div>
+              <div>
+                <strong>NoteFlow CSV</strong>
+                <p>{t("For full control: title, prompt, noteMarkdown, skill, tags, mode, hints, and scaffold.", "需要完整控制时使用：title、prompt、noteMarkdown、skill、tags、mode、提示与骨架。")}</p>
+                <button type="button" onClick={downloadTemplate}>{t("Download CSV template", "下载 CSV 模板")}</button>
               </div>
             </div>
 
+            <details className="import-guide">
+              <summary>{t("How should I export from Anki?", "如何从 Anki 导出？")}</summary>
+              <ol>
+                <li>{t("In Anki, choose File → Export.", "在 Anki 中选择“文件 → 导出”。")}</li>
+                <li>{t("Fastest: choose Anki Deck Package (.apkg) and select the deck. NoteFlow can read it directly.", "最省事：选择“Anki 牌组包（.apkg）”并选定牌组，NoteFlow 可以直接读取。")}</li>
+                <li>{t("Most compatible: choose Notes in Plain Text (.txt). You may include HTML, tags, and deck name.", "兼容性最好：选择“纯文本格式的笔记（.txt）”，可以包含 HTML、标签和牌组名。")}</li>
+              </ol>
+              <p>{t("Keep the # lines at the top of Anki's .txt file—NoteFlow uses them to map the columns correctly.", "请保留 Anki .txt 顶部的 # 指令行；NoteFlow 会用它们正确识别每一列。")}</p>
+            </details>
+
             <label className="import-fallback">
-              <span>{t("Use this domain when Deck / skill is unrecognized", "无法识别 Deck / skill 时归入")}</span>
+              <span>{t("Use this domain only when the file has no Deck / skill", "仅当文件没有 Deck / skill 时归入")}</span>
               <select
                 value={importFallbackSkill}
                 onChange={(event) => setImportFallbackSkill(event.target.value)}
@@ -411,11 +438,17 @@ export function NoteLibrary({
             <label className="file-drop">
               <input
                 type="file"
-                accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values"
-                onChange={(event) => void handleImportFile(event.target.files?.[0])}
+                accept=".apkg,.colpkg,.csv,.tsv,.txt,application/zip,text/plain,text/csv,text/tab-separated-values"
+                disabled={importBusy}
+                onChange={(event) => {
+                  void handleImportFile(event.target.files?.[0]);
+                  event.currentTarget.value = "";
+                }}
               />
-              <strong>{t("Choose a CSV / TSV file", "选择 CSV / TSV 文件")}</strong>
-              <span>{t("Supports quotes, multiline cells, and UTF-8 BOM", "支持引号、单元格内换行和 UTF-8 BOM")}</span>
+              <strong>{importBusy
+                ? t("Reading the Anki file…", "正在读取 Anki 文件……")
+                : t("Choose an Anki package, Anki .txt, or CSV", "选择 Anki 包、Anki .txt 或 CSV")}</strong>
+              <span>{importFileName || t(".apkg · .colpkg · .txt · .csv · .tsv", ".apkg · .colpkg · .txt · .csv · .tsv")}</span>
             </label>
 
             {importPreview && (
@@ -423,7 +456,11 @@ export function NoteLibrary({
                 <div className="import-preview-heading">
                   <div>
                     <strong>{t(`${importPreview.cards.length} ready to import`, `${importPreview.cards.length} 条可导入`)}</strong>
-                    <span>{importPreview.format === "anki" ? t("Detected Anki format", "检测为 Anki 格式") : t("Detected NoteFlow CSV", "检测为 NoteFlow CSV")}</span>
+                    <span>{importPreview.format === "anki-package"
+                      ? t("Detected Anki package", "检测为 Anki 牌组包")
+                      : importPreview.format === "anki-text"
+                        ? t("Detected Anki plain-text export", "检测为 Anki 纯文本导出")
+                        : t("Detected NoteFlow CSV", "检测为 NoteFlow CSV")}</span>
                   </div>
                   <button
                     type="button"
@@ -442,7 +479,7 @@ export function NoteLibrary({
                 <div className="import-card-preview">
                   {importPreview.cards.slice(0, 4).map((card) => (
                     <div key={card.id}>
-                      <span>{skills.find((skill) => skill.id === card.skillId)?.name}</span>
+                      <span>{[...skills, ...importPreview.newSkills].find((skill) => skill.id === card.skillId)?.name}</span>
                       <strong>{card.title}</strong>
                       <small>{card.tags.map((tag) => `#${tag}`).join(" ") || t("No tags", "无标签")}</small>
                     </div>
