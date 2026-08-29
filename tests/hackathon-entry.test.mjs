@@ -34,6 +34,8 @@ test("declares the mandatory Google agent stack and honest preview behavior", as
   assert.match(agent, /planSettingsSchema/);
   assert.match(agent, /paceBias/);
   assert.match(agent, /explicitPlanningSignalsSchema/);
+  assert.doesNotMatch(agent, /z\.literal\(''\)/);
+  assert.match(agent, /optionalTimeSchema/);
   assert.match(agent, /dailyMinutes/);
   assert.match(agent, /startMode/);
   assert.match(agent, /one hour a day/);

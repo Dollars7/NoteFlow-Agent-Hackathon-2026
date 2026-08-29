@@ -49,13 +49,19 @@ const relationshipSchema = z.object({
   reason: z.string().min(1),
 });
 
-const optionalDateSchema = z.union([z.literal(''), z.string().regex(/^\d{4}-\d{2}-\d{2}$/)]);
+const optionalDateSchema = z.string()
+  .regex(/^(?:|\d{4}-\d{2}-\d{2})$/)
+  .describe('An ISO date in YYYY-MM-DD format, or an empty string when unset.');
+
+const optionalTimeSchema = z.string()
+  .regex(/^(?:|(?:[01]\d|2[0-3]):[0-5]\d)$/)
+  .describe('A 24-hour HH:MM time, or an empty string when unset.');
 
 const explicitPlanningSignalsSchema = z.object({
   dailyMinutes: z.number().int().min(5).max(720).nullable(),
   sessionMinutes: z.number().int().min(5).max(180).nullable(),
   daysPerWeek: z.number().int().min(1).max(7).nullable(),
-  preferredTime: z.union([z.literal(''), z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)]),
+  preferredTime: optionalTimeSchema,
   startDate: optionalDateSchema,
   targetDate: optionalDateSchema,
 });
