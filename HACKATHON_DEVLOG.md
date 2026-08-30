@@ -169,7 +169,7 @@ All timestamps use America/Phoenix (UTC-07:00 during the contest). This log reco
 - Restricted local ADK discovery to `agent.ts`; verified the service starts without the Cloud Run shared secret and returns HTTP 200 with `["agent"]` from `/list-apps`.
 - Added the three Agent-entry assertions to the default suite. All 13 automated tests, full lint, root and Agent TypeScript checks, Vinext compatibility build, and Vercel production build passed.
 - Removed the obsolete OpenAI hosting project file and its build/test coupling, aligned `.env.example` with the server-only Agent variables, and moved the submission tracker out of the judge-facing README.
-- Updated README, Devpost draft, architecture documentation, and the judge-facing diagram for multi-card sessions, native `.apkg` ingestion, signed feedback continuation, and the mandatory Google technology stack.
+- Updated README, Devpost draft, architecture documentation, and the judge-facing diagram for multi-card sessions, native `.apkg` ingestion, signed feedback continuation, and the mandatory Google technology stack. Reflowed the README diagrams into a three-layer deployed path and a compact repeating learner loop.
 
 ## Logging rules
 

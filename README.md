@@ -161,32 +161,48 @@ The web experience runs on Vercel; the protected Google ADK service and private 
 
 ## Architecture
 
-Current deployed Agent path:
+### Current deployed Agent path
 
 ```mermaid
-flowchart LR
-    Web["Bilingual web flow"] --> Proxy["Same-origin server boundary"]
-    Proxy --> API["Google ADK on Cloud Run"]
-    API --> Gemini["Gemini 3.5 Flash"]
-    API --> Firestore[("Firestore model versions")]
-    API --> PubSub[["Pub/Sub job"]]
-    PubSub --> Worker["Private Cloud Run worker"]
-    Worker --> Firestore
-    API --> Web
-    Web --> Practice["NoteFlow retrieval in /demo"]
-    Practice -->|"attempt + memory feedback"| Proxy
-    Proxy -->|"signed session continuation"| API
+flowchart TB
+    subgraph Public["1 · PUBLIC EXPERIENCE · Vercel"]
+        direction LR
+        Learner["Learner"] --> Web["Goal + messy notes"]
+        Review["Editable plan review"] --> Practice["Small retrieval session · /demo"]
+    end
+
+    subgraph Boundary["2 · SERVER BOUNDARY"]
+        Proxy["Same-origin proxy<br/>rate limit · server-only secret"]
+    end
+
+    subgraph Cloud["3 · GOOGLE CLOUD"]
+        direction LR
+        Agent["Google ADK Agent<br/>Cloud Run"] --> Gemini["Gemini 3.5 Flash<br/>Vertex AI"]
+        Agent --> Firestore[("Firestore<br/>current + immutable versions")]
+        Agent --> PubSub[["Pub/Sub<br/>safe digest"]]
+        PubSub --> Worker["Private worker<br/>Cloud Run · OIDC"]
+        Worker --> Firestore
+    end
+
+    Web -->|"plan request"| Proxy
+    Proxy -->|"authenticated ADK session"| Agent
+    Agent -->|"plan + retrieval cards"| Review
+    Practice -->|"signed attempt + memory feedback"| Proxy
 ```
 
-Target experience extension:
+### Target experience extension
 
 ```mermaid
-flowchart LR
+flowchart TB
     Context["Goal + learning context"] --> Rhythm["Adaptive rhythm"]
-    Rhythm --> Notice["Opt-in notification"]
-    Notice --> Flow["NoteFlow retrieval flow"]
-    Flow --> Evidence["Attempt + memory feedback"]
-    Evidence --> Rhythm
+
+    subgraph Repeat["REPEATS · never creates overdue work"]
+        direction LR
+        Invite["Opt-in server invitation"] --> Session["Small retrieval session"] --> Evidence["Attempt + memory evidence"]
+    end
+
+    Rhythm --> Invite
+    Evidence -->|"adapt timing · load · scope"| Rhythm
 ```
 
 See the detailed [current architecture and trust boundaries](docs/HACKATHON_ARCHITECTURE.md).
