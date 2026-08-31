@@ -260,5 +260,6 @@ The stable pre-contest product remains in the original [`Dollars7/NoteFlow`](htt
 
 ## Submission materials
 
+- Demo video: https://www.youtube.com/watch?v=j2gfKoYyCZQ
 - Architecture: `docs/architecture.png`
 - Pre-existing work: `HACKATHON_DISCLOSURE.md` · Dev log: `HACKATHON_DEVLOG.md`
