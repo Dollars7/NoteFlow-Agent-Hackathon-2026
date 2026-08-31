@@ -9,6 +9,7 @@
 - Demo video (≤4 min): https://www.youtube.com/watch?v=j2gfKoYyCZQ
 - Judge path — try it in 3 minutes: [jump to steps](#judge-path-no-account)
 - Architecture diagram: [docs/architecture.png](docs/architecture.png)
+- Devpost submission: https://devpost.com/software/noteflow-agent
 
 **Category: Collaborative Partner · Gemini 3.5 Flash (Vertex AI) · Google ADK for TypeScript · Cloud Run + Firestore + Pub/Sub**
 
