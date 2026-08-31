@@ -19,7 +19,7 @@ The implemented Agent currently:
 - infers reviewable plan settings from natural language: optional role baseline, themes, continuous steady-to-sprint priority, session-duration and invitation-frequency ranges, study pattern, energy window, and reminder preference;
 - infers concepts, gaps, and prerequisite relationships;
 - turns learner-controlled preferences, constraints, cadence, energy window, and invitation time into a sustainable rhythm;
-- selects one high-value retrieval prompt;
+- generates 1–8 structured retrieval cards (theme, mode, prompt, hints, expected answer, note, language code);
 - persists the current learning model, reviewable plan settings, rhythm, next invitation, and an immutable version in Firestore;
 - accepts completed NoteFlow retrieval evidence through a signed continuation session;
 - revises the rhythm and knowledge path from attempt outcome, hint depth, reaction time, memory feedback, and before/after memory state;
