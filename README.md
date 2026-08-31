@@ -6,8 +6,9 @@
 **All Things Agentic Hackathon 2026 · Collaborative Partner track**
 
 - Hosted demo: https://note-flow-agent-hackathon-2026.vercel.app (no account needed)
+- Demo video (≤4 min): https://www.youtube.com/watch?v=j2gfKoYyCZQ
+- Judge path — try it in 3 minutes: [jump to steps](#judge-path-no-account)
 - Architecture diagram: [docs/architecture.png](docs/architecture.png)
-- Pre-existing work disclosure: [HACKATHON_DISCLOSURE.md](HACKATHON_DISCLOSURE.md)
 
 **Category: Collaborative Partner · Gemini 3.5 Flash (Vertex AI) · Google ADK for TypeScript · Cloud Run + Firestore + Pub/Sub**
 
