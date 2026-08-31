@@ -10,7 +10,7 @@
 - **Required Google stack:** Gemini 3.5 Flash (Vertex AI) · Google ADK for TypeScript · Cloud Run + Firestore + Pub/Sub
 - **Hosted project:** https://note-flow-agent-hackathon-2026.vercel.app
 - **Source repository:** https://github.com/Dollars7/NoteFlow-Agent-Hackathon-2026
-- **Demo video:** `[PUBLIC YOUTUBE OR VIMEO URL — REQUIRED]`
+- **Demo video:** https://www.youtube.com/watch?v=j2gfKoYyCZQ
 - **Architecture:** https://github.com/Dollars7/NoteFlow-Agent-Hackathon-2026/blob/main/docs/HACKATHON_ARCHITECTURE.md
 
 ## Short summary
